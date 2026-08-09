@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#ff7aa8">
-<meta name="description" content="自分の予定と推しのスケジュールが同じカレンダーの上に並ぶ、推し活のためのカレンダーです。">
+<meta name="description" content="推しごと＝推し事×推し毎。自分の予定と推しのスケジュールが同じカレンダーに並ぶ、推し活のためのカレンダーです。">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="推しごとカレンダー">
@@ -33,6 +33,8 @@ body{
   font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;
   font-size:15px; line-height:1.6;
   padding:0 0 104px; -webkit-text-size-adjust:100%;
+  /* 端まで来たときの跳ね返りを止める。これが残っていると画面が揺れて見える */
+  overscroll-behavior-y:none;
 }
 .wrap{max-width:720px;margin:0 auto;padding:0 12px}
 button{font:inherit;color:inherit;cursor:pointer}
@@ -175,7 +177,11 @@ header{
 
 /* ---------- フィルタ ---------- */
 .filters-label{font-size:11px;color:var(--sub);margin:10px 0 0}
-.filters{display:flex;gap:6px;overflow-x:auto;padding:6px 0 2px;-webkit-overflow-scrolling:touch}
+/* 横スクロールが本体のスクロールに伝わると、斜めに揺れる */
+.filters{
+  display:flex;gap:6px;overflow-x:auto;padding:6px 0 2px;
+  -webkit-overflow-scrolling:touch;overscroll-behavior-x:contain;
+}
 .filters::-webkit-scrollbar{display:none}
 .chip{
   flex:0 0 auto;display:flex;align-items:center;gap:6px;
@@ -293,7 +299,11 @@ header{
 .sheet{
   background:var(--panel);width:100%;max-width:560px;max-height:88vh;overflow-y:auto;
   border-radius:18px 18px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));
+  /* 中を最後までスクロールしたあと、裏の本体まで動き出さないようにする */
+  overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
 }
+/* 本体のスクロールを止めている間の目印。位置は JS が覚えて元に戻す */
+body.locked{position:fixed;width:100%;overflow:hidden}
 @media (min-width:560px){ .mask{align-items:center} .sheet{border-radius:18px} }
 .sheet h3{margin:0 0 14px;font-size:16px}
 .sheet h4{margin:20px 0 0;font-size:13px}
@@ -425,8 +435,8 @@ textarea{min-height:104px;resize:vertical}
   <!-- ホーム表示 -->
   <div id="view-home">
     <div class="sample-note" id="sample-note" hidden>
-      いま並んでいるのは<strong>お試し用の見本</strong>です。どんなふうに見えるかを試すために入れてあります。
-      自分の推しで使いはじめるときは、下のボタンで消してください。
+      いま並んでいるのは<strong>お試し用の見本</strong>です。見本の推しは架空であり、実在の推しとは関係ありません。
+      本採用のときは、下のボタンで消してください。
       <div class="sn-act">
         <button class="primary" id="sn-clear">見本を消して始める</button>
         <button id="sn-keep">もう少し見る</button>
@@ -444,18 +454,21 @@ textarea{min-height:104px;resize:vertical}
       <div class="hero-count"><b id="hero-num"></b><small id="hero-unit"></small></div>
     </div>
     <div class="hero-none" id="hero-none" hidden>
-      これから先の推しの予定は、まだ入っていません。<br>
-      下の「📋 文章から予定を作る」か、「＋ 予定」から入れられます。
+      いまのところ、推しごとの予定はありません。<br>
+      休息も大事な業務です。予定が決まったら、下から入れてください。
     </div>
 
     <div class="card" id="start-card" hidden>
-      <h3>はじめかた</h3>
-      <p class="hint" style="margin:0 0 4px">この2つを済ませれば、あとは自由に使えます。</p>
+      <h3>着任のご案内</h3>
+      <p class="hint" style="margin:0 0 4px">
+        推しごとを始める手続きは2つだけです。研修はありません。
+      </p>
       <div id="start-steps"></div>
     </div>
 
     <div class="card" id="dl-card" hidden>
       <h3>⏳ 迫っている締切</h3>
+      <p class="hint" style="margin:0 0 2px">納期は待ってくれません。</p>
       <div id="dl-list"></div>
     </div>
 
@@ -465,7 +478,7 @@ textarea{min-height:104px;resize:vertical}
     </div>
 
     <div class="card" id="money-card">
-      <h3>💰 今月の推し活費</h3>
+      <h3>💰 今月の推しごと経費</h3>
       <div class="money"><b id="money-total"></b><span id="money-count"></span></div>
       <div id="money-break"></div>
       <p class="hint" id="money-year"></p>
@@ -474,9 +487,9 @@ textarea{min-height:104px;resize:vertical}
     <div class="card" id="rv-card">
       <h3 id="rv-head"></h3>
       <div class="rv">
-        <div><b id="rv-count"></b><small>推しの予定</small></div>
-        <div><b id="rv-live"></b><small>ライブ</small></div>
-        <div><b id="rv-spent"></b><small>使った金額</small></div>
+        <div><b id="rv-count"></b><small>出勤</small></div>
+        <div><b id="rv-live"></b><small>現場</small></div>
+        <div><b id="rv-spent"></b><small>投資額</small></div>
       </div>
       <div id="rv-break"></div>
       <p class="hint" id="rv-note"></p>
@@ -605,9 +618,11 @@ textarea{min-height:104px;resize:vertical}
     <h3>推しごとカレンダーの使い方</h3>
 
     <p class="lead">
-      <strong>自分の予定と、推しの予定を、ひとつのカレンダーに並べて見るアプリです。</strong><br>
-      「バイトの日にライブが重なってた」を防ぐのが目的です。
+      <strong>推しごと</strong>＝「推し事」と「推し毎」。<br>
+      推しを追いかけるのは、もはや<strong>お仕事</strong>です。<br>
+      そのお仕事を、<strong>推しごとに</strong>まるっと引き受けます。
     </p>
+    <p>自分の予定と推しの予定を、ひとつのカレンダーに並べて見るアプリです。「バイトの日にライブが重なってた」を防ぐのが目的です。</p>
 
     <h4>画面は3つあります</h4>
     <dl>
@@ -651,6 +666,10 @@ textarea{min-height:104px;resize:vertical}
       そのため、<strong>スマホを買い替えたり、ブラウザの履歴やデータを消したりすると、予定も消えます。</strong>
       ⚙️ の「🛟 いまの予定の控えを取る」でときどき控えを取っておくと、あとから元に戻せます。
     </div>
+
+    <p style="text-align:center;font-size:13px;color:var(--sub);margin:22px 0 0">
+      それでは、よい推しごとを。
+    </p>
 
     <div class="actions">
       <button class="primary" id="help-close">とじる</button>
@@ -728,7 +747,7 @@ textarea{min-height:104px;resize:vertical}
    ・外部サイトからの自動取得は行わない（理由は knowledge/external-data-fetch.md）
    ========================================================= */
 
-const APP_VERSION = '3.3.0';
+const APP_VERSION = '3.4.0';
 const STORE_KEY = 'oshi-cal-v1';
 const PALETTE = ['#ff7aa8','#7ec8e3','#ffc25c','#9ad6a3','#c39aeb','#ff9f7a','#6fd0c4','#e88fb8'];
 const TYPES = [
@@ -1138,7 +1157,7 @@ function renderDeadlines(){
 function renderHomeList(){
   const d = fromYmd(TODAY);
   document.getElementById('home-label').textContent =
-    `きょう・あす（${d.getMonth()+1}/${d.getDate()}〜）`;
+    `きょう・あすの推しごと（${d.getMonth()+1}/${d.getDate()}〜）`;
   const box = document.getElementById('home-list');
   box.textContent = '';
   let count = 0;
@@ -1161,7 +1180,7 @@ function renderHomeList(){
   });
   if(!count){
     const p = document.createElement('p');
-    p.className = 'empty'; p.textContent = '今日と明日の予定はありません。';
+    p.className = 'empty'; p.textContent = '今日と明日は、おだやかな2日間になりそうです。';
     box.appendChild(p);
   }
 }
@@ -1216,8 +1235,9 @@ function renderMoney(){
   }
 
   const year = spendBetween(ymd(new Date(y,0,1)), ymd(new Date(y,11,31))).total;
-  document.getElementById('money-year').textContent =
-    `${y}年の合計は ${yen(year)}　／　予定に金額を入れると自動で集計されます`;
+  document.getElementById('money-year').textContent = total
+    ? `${y}年の合計は ${yen(year)}　／　なお、経費では落ちません`
+    : `予定に金額を入れると、ここに自動で積み上がります`;
 }
 
 /* ---------- ふりかえり ----------
@@ -1238,7 +1258,7 @@ function renderReview(){
       per[e.ownerId] = (per[e.ownerId] || 0) + 1;
     });
   }
-  document.getElementById('rv-head').textContent = `📖 ${y}年のふりかえり`;
+  document.getElementById('rv-head').textContent = `📖 ${y}年の勤務実績`;
   document.getElementById('rv-count').textContent = count;
   document.getElementById('rv-live').textContent  = live;
   document.getElementById('rv-spent').textContent = spent ? yen(spent) : '¥0';
@@ -1256,8 +1276,8 @@ function renderReview(){
     box.appendChild(r);
   });
   document.getElementById('rv-note').textContent = count
-    ? `1月1日から今日までの合計です`
-    : `今年はまだ記録がありません。予定を入れると、ここに積み上がっていきます。`;
+    ? `1月1日から今日までの実績です。おつかれさまでした。`
+    : `今年の実績はこれからです。予定を入れると、ここに積み上がっていきます。`;
 }
 
 function renderFilters(){
@@ -1339,9 +1359,10 @@ function renderGrid(){
       selected = key;
       if(d.getMonth() !== mo) view = new Date(d.getFullYear(), d.getMonth(), 1);
       render();
-      // その日の中身は画面の下にあって見えないことが多い。押したら送ってやる。
+      // その日の中身が画面の外に隠れているときだけ送ってやる。
+      // 少しでも見えていれば動かさない。毎回動かすと画面が揺れて感じられるため。
       const card = document.querySelector('#view-cal .card');
-      if(card.getBoundingClientRect().bottom > innerHeight){
+      if(card.getBoundingClientRect().top > innerHeight - 60){
         card.scrollIntoView({behavior:'smooth', block:'nearest'});
       }
     };
@@ -2133,8 +2154,33 @@ document.getElementById('set-reset').onclick = () => {
 /* =========================================================
    モーダル共通・タブ・月移動
    ========================================================= */
-function show(id){ document.getElementById(id).hidden = false; }
-function hide(id){ document.getElementById(id).hidden = true; if(id === 'm-event') formDirty = false; }
+/* ---------- 画面が揺れないようにする ----------
+   スマホでは次の2つが「揺れる」の正体になりやすい。
+   ① モーダルの裏で本体がスクロールしてしまう（指を離した瞬間に背景が動く）
+   ② 文字を打つときにキーボードが出て、画面下に貼りついたバーが押し上げられて暴れる
+   どちらも「モーダルが開いている間は本体を固定し、下のバーを消す」ことで止まる。 */
+let lockedAt = 0;
+function syncModalState(){
+  const open = [...document.querySelectorAll('.mask')].some(m => !m.hidden);
+  const body = document.body;
+  if(open && !body.classList.contains('locked')){
+    lockedAt = window.scrollY || window.pageYOffset || 0;
+    body.style.top = -lockedAt + 'px';
+    body.classList.add('locked');
+  }else if(!open && body.classList.contains('locked')){
+    body.classList.remove('locked');
+    body.style.top = '';
+    window.scrollTo(0, lockedAt);          // 開く前に見ていた場所へ戻す
+  }
+  document.querySelector('.bar').hidden = open;
+}
+
+function show(id){ document.getElementById(id).hidden = false; syncModalState(); }
+function hide(id){
+  document.getElementById(id).hidden = true;
+  if(id === 'm-event') formDirty = false;
+  syncModalState();
+}
 
 /* 背景タップやEscで閉じるとき、書きかけの内容を黙って捨てない */
 function tryClose(m){
@@ -2144,6 +2190,7 @@ function tryClose(m){
      && !confirm('貼り付けた内容は残りません。閉じてよろしいですか？')) return;
   m.hidden = true;
   if(m.id === 'm-event') formDirty = false;
+  syncModalState();
 }
 document.querySelectorAll('.mask').forEach(m => {
   m.addEventListener('click', e => { if(e.target === m) tryClose(m); });
