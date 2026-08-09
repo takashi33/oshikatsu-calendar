@@ -310,9 +310,39 @@ textarea{min-height:104px;resize:vertical}
 .cand .c-body{flex:1;min-width:0}
 .cand .c-date{font-size:12px;color:var(--sub);margin-bottom:3px}
 
-/* 設定 */
-.setrow{display:flex;gap:8px;margin-top:8px}
-.setrow button{flex:1;border:1px solid var(--line);background:var(--bg);border-radius:11px;padding:12px 8px;font-size:13px;font-weight:600}
+/* 設定・使い方 */
+.big-btn{
+  width:100%;border:1px solid var(--line);background:var(--bg);border-radius:12px;
+  padding:14px;font-size:14px;font-weight:700;margin-top:8px;
+}
+.big-btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.steps{margin:10px 0 0;padding-left:1.35em;font-size:13px;color:var(--sub);line-height:1.75}
+.steps li{margin-bottom:4px}
+.steps strong{color:var(--text)}
+/* 使い方 */
+.guide h4{
+  margin:22px 0 6px;font-size:15px;color:var(--text);
+  padding-bottom:6px;border-bottom:1px solid var(--line);
+}
+.guide h4:first-of-type{margin-top:14px}
+.guide p{margin:6px 0;font-size:13.5px;line-height:1.8}
+.guide .lead{
+  background:var(--bg);border:1px solid var(--line);border-radius:12px;
+  padding:12px 13px;font-size:13.5px;line-height:1.8;margin:0;
+}
+.guide dl{margin:8px 0 0;font-size:13.5px}
+.guide dt{font-weight:700;margin-top:10px}
+.guide dd{margin:2px 0 0;color:var(--sub);line-height:1.75}
+.guide .tip{
+  background:rgba(255,122,168,.10);border-radius:10px;padding:10px 12px;
+  font-size:13px;line-height:1.75;margin:10px 0 0;
+}
+/* 横に並べると文字が折り返して読めなくなるので、縦に積む */
+.setrow{display:flex;flex-direction:column;gap:8px;margin-top:8px}
+.setrow button{
+  width:100%;border:1px solid var(--line);background:var(--bg);border-radius:11px;
+  padding:13px 8px;font-size:14px;font-weight:600;
+}
 .danger-zone button{width:100%;border:1px solid var(--line);background:none;color:#d4536b;border-radius:11px;padding:12px;font-weight:600;margin-top:8px}
 </style>
 </head>
@@ -338,8 +368,8 @@ textarea{min-height:104px;resize:vertical}
   </header>
 
   <div class="warn" id="storewarn" hidden>
-    ⚠️ このブラウザでは予定を保存できません。ページを閉じると入力した内容は消えます。
-    プライベートブラウズを解除するか、別のブラウザでお試しください。
+    ⚠️ <strong>いまの状態では、入れた予定が保存されません。</strong>この画面を閉じると消えてしまいます。<br>
+    シークレットモード（プライベートブラウズ）で開いていませんか。ふつうの画面で開き直してみてください。
   </div>
 
   <div class="filters" id="filters"></div>
@@ -347,10 +377,14 @@ textarea{min-height:104px;resize:vertical}
   <!-- ホーム表示 -->
   <div id="view-home">
     <div class="sample-note" id="sample-note" hidden>
-      いま入っているのは<strong>お試し用のサンプル</strong>です。自分の推しで使いはじめましょう。
+      いま並んでいるのは<strong>お試し用の見本</strong>です。どんなふうに見えるかを試すために入れてあります。
+      自分の推しで使いはじめるときは、下のボタンで消してください。
       <div class="sn-act">
-        <button class="primary" id="sn-clear">サンプルを消して始める</button>
-        <button id="sn-keep">このまま使う</button>
+        <button class="primary" id="sn-clear">見本を消して始める</button>
+        <button id="sn-keep">もう少し見る</button>
+      </div>
+      <div class="sn-act" style="margin-top:8px">
+        <button id="sn-help">📖 使い方を見る</button>
       </div>
     </div>
 
@@ -417,7 +451,7 @@ textarea{min-height:104px;resize:vertical}
 </div>
 
 <div class="bar">
-  <button class="primary" id="btn-paste">📋 貼り付けて読み取り</button>
+  <button class="primary" id="btn-paste">📋 文章から予定を作る</button>
   <button id="btn-oshi">👤 推しを管理</button>
 </div>
 
@@ -481,17 +515,77 @@ textarea{min-height:104px;resize:vertical}
 <!-- 貼り付けて読み取り -->
 <div class="mask" id="m-paste" hidden>
   <div class="sheet">
-    <h3>貼り付けて読み取り</h3>
-    <p class="hint" style="margin:0 0 8px">公式サイトやSNSの告知文をそのまま貼ってください。日付らしいところを拾って候補にします。</p>
-    <label>だれの予定として読み取る？</label>
+    <h3>文章から予定を作る</h3>
+    <p class="hint" style="margin:0 0 8px">
+      公式サイトやSNSのお知らせを、<strong>そのままコピーして下の枠に貼ってください。</strong>
+      日にちらしいところを探して、予定の候補にします。打ち直す必要はありません。
+    </p>
+    <label>だれの予定にしますか？</label>
     <div class="seg" id="ps-owner"></div>
-    <label for="ps-text">貼り付け先</label>
+    <label for="ps-text">ここに貼ってください</label>
     <textarea id="ps-text" placeholder="例）&#10;8/15(金) 18:00 開演　夏フェス2026 出演&#10;2026年9月3日 ニューシングル発売&#10;10/1 21:00〜 インスタライブ"></textarea>
     <div class="actions" style="margin-top:12px">
       <button id="ps-cancel">やめる</button>
-      <button class="primary" id="ps-read">読み取る</button>
+      <button class="primary" id="ps-read">日にちを探す</button>
     </div>
     <div id="ps-result"></div>
+  </div>
+</div>
+
+<!-- 使い方 -->
+<div class="mask" id="m-help" hidden>
+  <div class="sheet guide">
+    <h3>推し活カレンダーの使い方</h3>
+
+    <p class="lead">
+      <strong>自分の予定と、推しの予定を、ひとつのカレンダーに並べて見るアプリです。</strong><br>
+      「バイトの日にライブが重なってた」を防ぐのが目的です。
+    </p>
+
+    <h4>画面は3つあります</h4>
+    <dl>
+      <dt>ホーム</dt>
+      <dd>次の推しの予定まであと何日か。逃せない締切。今月いくら使ったか。まずここを見ます。</dd>
+      <dt>カレンダー</dt>
+      <dd>ひと月の表です。<strong>自分の予定はグレー、推しの予定は推しの色</strong>で並びます。日にちを押すと、その日の中身が下に出ます。横に払うと次の月へ動きます。</dd>
+      <dt>これから</dt>
+      <dd>先の予定を、日付順にずらっと並べたものです。上の枠に文字を入れると絞り込めます。</dd>
+    </dl>
+
+    <h4>まず、推しを登録します</h4>
+    <p>下の「👤 推しを管理」を押して、名前を入れます。<strong>何人でも登録できます。</strong>色の丸を押すと色を変えられます。この色が、カレンダーの中でその推しの目印になります。</p>
+
+    <h4>予定を入れる（2つのやり方）</h4>
+    <dl>
+      <dt>① 自分で入力する</dt>
+      <dd>「＋ 予定」を押します。<strong>だれの予定か・タイトル・種類・日にち</strong>だけ入れれば保存できます。場所やお金は「＋」を押すと出てきます。</dd>
+      <dt>② 告知の文章を貼り付ける</dt>
+      <dd>下の「📋 文章から予定を作る」を押して、<strong>公式サイトやSNSのお知らせをそのままコピーして貼る</strong>だけです。日にちらしいところを探して、候補を出します。中身は必ず目で確かめてから追加してください。</dd>
+    </dl>
+
+    <h4>締切を逃さないために</h4>
+    <p>チケットの申込や入金など、<strong>過ぎたら取り返しがつかないもの</strong>は、種類を「🎫 締切」にしてください。ホームのいちばん上のほうに「あと◯日」と出ます。3日を切ると赤くなります。</p>
+    <p>申し込みが終わったら「<strong>済にする</strong>」を押してください。締切の欄から消えます。</p>
+
+    <h4>毎日・毎週ある予定</h4>
+    <p>毎日の配信のように繰り返しあるものは、「繰り返し」を「毎日」や「毎週」にすると、<strong>1回入れるだけで先まで並びます。</strong></p>
+    <p>その日だけお休みのときは「<strong>この回は休み</strong>」を押します。ほかの回はそのまま残ります。</p>
+
+    <h4>使ったお金</h4>
+    <p>予定に金額を入れておくと、<strong>今月いくら使ったかがホームに出ます。</strong>推しごとの内訳も出るので、だれにいくら使っているかが分かります。</p>
+
+    <h4>いつものカレンダーにも出したい</h4>
+    <p>右上の ⚙️ から「📱 いつものカレンダーに送る」を押すと、iPhoneのカレンダーやGoogleカレンダーにも並べられます。<strong>そちらに入れておくと、アプリを開いていなくても通知が鳴ります。</strong>手順は ⚙️ の中に書いてあります。</p>
+
+    <div class="tip">
+      <strong>大事なこと。</strong>入れた予定は<strong>このスマホの中だけ</strong>にあります。インターネットのどこかに保存しているわけではありません。<br>
+      そのため、<strong>スマホを買い替えたり、ブラウザの履歴やデータを消したりすると、予定も消えます。</strong>
+      ⚙️ の「🛟 いまの予定の控えを取る」でときどき控えを取っておくと、あとから元に戻せます。
+    </div>
+
+    <div class="actions">
+      <button class="primary" id="help-close">とじる</button>
+    </div>
   </div>
 </div>
 
@@ -500,37 +594,53 @@ textarea{min-height:104px;resize:vertical}
   <div class="sheet">
     <h3>設定</h3>
 
-    <h4>データの持ち出しと引き継ぎ</h4>
+    <button class="big-btn" id="set-help">📖 使い方を見る</button>
+
+    <h4>いつものカレンダーにも出したい</h4>
     <p class="hint" style="margin-top:4px">
-      予定はこの端末のブラウザの中だけに保存されています。<strong>ブラウザのデータを消すと予定も消えます。</strong>
-      機種変更のときも自動では移りません。ときどき書き出して保管してください。
+      推しの予定を、スマホにもとから入っているカレンダー（iPhoneのカレンダー、Googleカレンダーなど）にも
+      並べられます。<strong>そちらに入れておくと、アプリを開かなくても通知が鳴ります。</strong>
+    </p>
+    <button class="big-btn primary" id="set-ics">📱 いつものカレンダーに送る</button>
+    <ol class="steps">
+      <li>上のボタンを押すと、<strong>予定をまとめたファイル</strong>が1つ作られます</li>
+      <li>「開く」「ダウンロード」などの案内が出るので、そのファイルを開きます</li>
+      <li>スマホが「カレンダーに追加しますか？」と聞いてきます</li>
+      <li>追加すると、いつものカレンダーに推しの予定が並びます</li>
+    </ol>
+    <p class="hint">
+      予定を足したり直したりしたら、また同じ手順で送ってください。<strong>あちらは自動では変わりません。</strong>
+    </p>
+
+    <h4>予定が消えてしまわないように</h4>
+    <p class="hint" style="margin-top:4px">
+      入れた予定は<strong>このスマホの中だけ</strong>にあります。どこかのサーバーには送っていません。
+      そのぶん、<strong>スマホを買い替えたときや、ブラウザの履歴・データを消したときに、いっしょに消えてしまいます。</strong>
+      ときどき控えを取っておくと、あとから元に戻せます。
     </p>
     <div class="setrow">
-      <button id="set-export">💾 書き出す</button>
-      <button id="set-import">📂 読み込む</button>
+      <button id="set-export">🛟 いまの予定の控えを取る</button>
+      <button id="set-import">↩️ 控えから元に戻す</button>
     </div>
     <input type="file" id="set-file" accept="application/json,.json" hidden>
-
-    <h4>ふだん使うカレンダーへ移す</h4>
-    <p class="hint" style="margin-top:4px">
-      推しの予定を、スマホやGoogleのカレンダーに取り込める形（.ics）で書き出します。
-      取り込んだあとは向こう側のデータになるので、ここで直しても反映されません。
+    <p class="hint">
+      控えは1つのファイルとして保存されます。<strong>メールで自分に送っておく</strong>か、
+      クラウドに置いておくと、新しいスマホでも「↩️ 控えから元に戻す」で元どおりにできます。
     </p>
-    <div class="setrow">
-      <button id="set-ics">📅 .ics で書き出す</button>
-    </div>
 
-    <h4>アプリについて</h4>
+    <h4>このアプリについて</h4>
     <p class="hint" style="margin-top:4px">
       推し活カレンダー <span id="set-ver"></span><br>
-      いま <span id="set-count"></span> を保存しています。
+      いま <span id="set-count"></span> を覚えています。
     </p>
 
-    <h4 style="color:#d4536b">全部消す</h4>
+    <h4 style="color:#d4536b">全部消してやり直す</h4>
     <div class="danger-zone">
-      <button id="set-reset">すべての推しと予定を削除する</button>
+      <button id="set-reset">推しも予定も、すべて消す</button>
     </div>
-    <p class="hint">元に戻せません。先に「書き出す」で保管してから実行してください。</p>
+    <p class="hint">
+      <strong>元に戻せません。</strong>消したくないものがあるときは、先に上の「🛟 いまの予定の控えを取る」を押してください。
+    </p>
 
     <div class="actions">
       <button class="primary" id="set-close">閉じる</button>
@@ -549,7 +659,7 @@ textarea{min-height:104px;resize:vertical}
    ・外部サイトからの自動取得は行わない（理由は knowledge/external-data-fetch.md）
    ========================================================= */
 
-const APP_VERSION = '2.2.0';
+const APP_VERSION = '3.0.0';
 const STORE_KEY = 'oshi-cal-v1';
 const PALETTE = ['#ff7aa8','#7ec8e3','#ffc25c','#9ad6a3','#c39aeb','#ff9f7a','#6fd0c4','#e88fb8'];
 const TYPES = [
@@ -680,7 +790,8 @@ function normalize(o){
     hidden: Array.isArray(d.hidden) ? d.hidden.map(String) : [],
     // 「これから」に繰り返しの予定も並べるか。既定は畳む（毎日配信が一覧を埋めてしまうため）
     showRepeats: !!d.showRepeats,
-    isSample: !!d.isSample,     // サンプルのまま使われないよう案内を出すため
+    isSample: !!d.isSample,     // 見本のまま使われないよう案内を出すため
+    helpSeen: !!d.helpSeen,     // 使い方を一度でも開いたか（初回だけ自動で出す）
     // 前回どの推し・どの種類で追加したかを覚えておく。毎回選び直すのが煩わしいため
     lastOwner: String(d.lastOwner || ''),
     lastType: String(d.lastType || '')
@@ -710,7 +821,8 @@ function seed(){
     ],
     hidden:[],
     showRepeats:false,
-    isSample:true
+    isSample:true,
+    helpSeen:false
   };
 }
 
@@ -1626,7 +1738,10 @@ document.getElementById('set-close').onclick = () => hide('m-set');
 
 document.getElementById('set-export').onclick = () => {
   const data = {app:'oshi-cal', version:APP_VERSION, exportedAt:new Date().toISOString(), ...state};
-  download(`推し活カレンダー-${TODAY}.json`, JSON.stringify(data, null, 2), 'application/json');
+  download(`推し活カレンダー-控え-${TODAY}.json`, JSON.stringify(data, null, 2), 'application/json');
+  alert(`推し${state.oshis.length}人・予定${state.events.length}件の控えを作りました。\n\n`
+      + 'このファイルを、メールで自分に送るかクラウドに置いておいてください。\n'
+      + '新しいスマホでも「控えから元に戻す」で読み込めます。');
 };
 
 /* ---- .ics（カレンダーアプリ向け）の書き出し ----
@@ -1707,8 +1822,11 @@ function download(name, text, mime){
 }
 document.getElementById('set-ics').onclick = () => {
   const n = state.events.filter(e => isShown(e.ownerId)).length;
-  if(!n){ alert('書き出せる予定がありません。'); return; }
+  if(!n){ alert('送れる予定がまだありません。先に予定を入れてください。'); return; }
   download(`推し活カレンダー-${TODAY}.ics`, buildICS(), 'text/calendar');
+  alert(`${n}件の予定をまとめたファイルを作りました。\n\n`
+      + 'このあと「開く」や「ダウンロード」の案内が出ます。\n'
+      + 'そのファイルを開くと、スマホが「カレンダーに追加しますか？」と聞いてきます。');
 };
 
 document.getElementById('set-import').onclick = () => document.getElementById('set-file').click();
@@ -1719,16 +1837,21 @@ document.getElementById('set-file').onchange = ev => {
   reader.onload = () => {
     let data;
     try{ data = JSON.parse(String(reader.result)); }
-    catch(e){ alert('このファイルは読み込めませんでした。書き出したJSONファイルを選んでください。'); return; }
+    catch(e){
+      alert('このファイルは読み込めませんでした。\n'
+          + 'このアプリの「🛟 いまの予定の控えを取る」で作ったファイルを選んでください。');
+      return;
+    }
     const next = normalize(data);
     if(!next.oshis.length && !next.events.length){
-      alert('中身が空でした。別のファイルを選んでください。'); return;
+      alert('中身が空っぽでした。別のファイルを選んでください。'); return;
     }
-    if(!confirm(`推し${next.oshis.length}人・予定${next.events.length}件を読み込みます。\n`
-              + `いまの内容（推し${state.oshis.length}人・予定${state.events.length}件）は置き換わります。よろしいですか？`)) return;
+    if(!confirm(`控えの中身：推し${next.oshis.length}人・予定${next.events.length}件\n\n`
+              + `これを読み込むと、いま入っている内容（推し${state.oshis.length}人・予定${state.events.length}件）は`
+              + `すべて置き換わります。よろしいですか？`)) return;
     state = next;
     save(); hide('m-set'); render();
-    alert('読み込みました。');
+    alert('控えから戻しました。');
   };
   reader.onerror = () => alert('ファイルを読めませんでした。');
   reader.readAsText(file);
@@ -1737,7 +1860,7 @@ document.getElementById('set-file').onchange = ev => {
 
 document.getElementById('set-reset').onclick = () => {
   if(!confirm('すべての推しと予定を削除します。元に戻せません。よろしいですか？')) return;
-  state = {oshis:[], events:[], hidden:[], showRepeats:false, isSample:false};
+  state = {oshis:[], events:[], hidden:[], showRepeats:false, isSample:false, helpSeen:state.helpSeen};
   save(); hide('m-set'); render();
 };
 
@@ -1764,9 +1887,20 @@ document.addEventListener('keydown', e => {
   document.querySelectorAll('.mask').forEach(m => { if(!m.hidden) tryClose(m); });
 });
 
+/* ---------- 使い方 ---------- */
+function openHelp(){
+  state.helpSeen = true; save();
+  show('m-help');
+  document.querySelector('#m-help .sheet').scrollTop = 0;
+}
+document.getElementById('set-help').onclick  = () => { hide('m-set'); openHelp(); };
+document.getElementById('sn-help').onclick   = openHelp;
+document.getElementById('help-close').onclick = () => hide('m-help');
+
 document.getElementById('sn-clear').onclick = () => {
-  if(!confirm('サンプルの推しと予定をすべて消して、まっさらな状態から始めますか？')) return;
-  state = {oshis:[], events:[], hidden:[], showRepeats:false, isSample:false};
+  if(!confirm('お試し用の見本をすべて消して、まっさらな状態から始めますか？')) return;
+  const seen = state.helpSeen;
+  state = {oshis:[], events:[], hidden:[], showRepeats:false, isSample:false, helpSeen:seen};
   save(); render();
   openOshi();     // すぐ推しを登録できるようにする
 };
@@ -1817,6 +1951,9 @@ document.getElementById('gotoday').onclick = () => {
 };
 
 render();
+
+// はじめて開いた人には、何ができるアプリなのかを先に見せる
+if(!state.helpSeen) openHelp();
 
 /* オフラインでも開けるようにする。file:// で開いた場合は登録できないので黙って諦める。 */
 if('serviceWorker' in navigator && location.protocol.startsWith('http')){
