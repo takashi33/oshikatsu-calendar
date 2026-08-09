@@ -1,0 +1,1829 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#ff7aa8">
+<meta name="description" content="自分の予定と推しのスケジュールが同じカレンダーの上に並ぶ、推し活のためのカレンダーです。">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="推し活カレンダー">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
+<title>推し活カレンダー</title>
+<style>
+:root{
+  --bg:#fdf7f9; --panel:#ffffff; --line:#eadfe4; --text:#2f2730; --sub:#8a7d86;
+  --me:#7c8ba1; --accent:#ff7aa8; --shadow:0 2px 12px rgba(90,60,75,.08);
+  --warn:#b9483f; --warnbg:#fdeceb;
+  --radius:14px;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#191419; --panel:#241d24; --line:#3a2f39; --text:#f0e8ee; --sub:#a2939f;
+    --me:#93a3ba; --shadow:0 2px 12px rgba(0,0,0,.35);
+    --warn:#ffb3ab; --warnbg:#3a2220;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  background:var(--bg); color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Yu Gothic",Meiryo,sans-serif;
+  font-size:15px; line-height:1.6;
+  padding:0 0 104px; -webkit-text-size-adjust:100%;
+}
+.wrap{max-width:720px;margin:0 auto;padding:0 12px}
+button{font:inherit;color:inherit;cursor:pointer}
+[hidden]{display:none !important}
+
+/* ---------- ヘッダ ---------- */
+header{
+  position:sticky; top:0; z-index:20; background:var(--bg);
+  padding:10px 0 6px; border-bottom:1px solid var(--line);
+}
+.title{display:flex;align-items:center;gap:8px;font-weight:700;font-size:17px;margin:0 0 9px}
+.title .dotmark{width:10px;height:10px;border-radius:50%;background:var(--accent);flex:0 0 10px}
+.title .gear{
+  margin-left:auto;background:var(--panel);border:1px solid var(--line);
+  border-radius:10px;width:34px;height:34px;display:grid;place-items:center;font-size:15px;
+}
+.tabs{display:flex;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:3px;margin-bottom:9px}
+.tabs button{flex:1;border:none;background:none;border-radius:8px;padding:7px 0;font-size:13px;font-weight:600;color:var(--sub)}
+.tabs button.on{background:var(--accent);color:#fff}
+.monthbar{display:flex;align-items:center;gap:8px}
+.monthbar h2{margin:0;font-size:20px;font-weight:700;flex:1}
+.monthbar h2 small{font-size:13px;color:var(--sub);font-weight:500;margin-left:4px}
+.nav{
+  background:var(--panel); border:1px solid var(--line); border-radius:10px;
+  width:38px;height:38px;display:grid;place-items:center;font-size:16px;
+}
+.today-btn{
+  background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  height:38px;padding:0 12px;font-size:13px;
+}
+.nav:active,.today-btn:active{transform:scale(.95)}
+
+/* ---------- 保存できないときの警告 ---------- */
+.warn{
+  margin-top:10px;background:var(--warnbg);color:var(--warn);
+  border:1px solid currentColor;border-radius:var(--radius);padding:10px 12px;font-size:13px;
+}
+
+/* サンプルのまま使われないようにする案内 */
+.sample-note{
+  margin-top:10px;background:var(--panel);border:1px dashed var(--accent);
+  border-radius:var(--radius);padding:12px 13px;font-size:13px;
+}
+.sample-note .sn-act{display:flex;gap:8px;margin-top:10px}
+.sample-note button{
+  flex:1;border:1px solid var(--line);background:var(--bg);border-radius:10px;
+  padding:9px 6px;font-size:13px;font-weight:600;
+}
+.sample-note button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* 済ませた予定 */
+.item.done .name{text-decoration:line-through}
+.item.done{opacity:.5}
+
+/* ふりかえり */
+.rv{display:flex;gap:8px;margin:10px 0 4px}
+.rv div{
+  flex:1;background:var(--bg);border:1px solid var(--line);border-radius:12px;
+  padding:10px 8px;text-align:center;
+}
+.rv b{display:block;font-size:21px;font-weight:800;line-height:1.2}
+.rv small{font-size:11px;color:var(--sub)}
+
+/* ---------- ホーム：つぎの予定を主役にする ---------- */
+.hero{
+  margin-top:10px;border-radius:18px;padding:18px 18px 16px;color:#fff;
+  box-shadow:0 6px 20px rgba(90,60,75,.18);position:relative;overflow:hidden;
+}
+.hero::after{
+  content:'';position:absolute;right:-40px;top:-40px;width:150px;height:150px;
+  border-radius:50%;background:rgba(255,255,255,.13);
+}
+.hero-label{font-size:11px;opacity:.9;letter-spacing:.06em}
+.hero-title{font-size:20px;font-weight:700;line-height:1.35;margin:4px 0 2px;word-break:break-word}
+.hero-sub{font-size:12px;opacity:.92}
+.hero-count{display:flex;align-items:baseline;gap:6px;margin-top:12px;position:relative;z-index:1}
+.hero-count b{font-size:46px;font-weight:800;line-height:1}
+.hero-count small{font-size:14px;font-weight:600;opacity:.95}
+.hero-none{
+  margin-top:10px;background:var(--panel);border:1px solid var(--line);
+  border-radius:var(--radius);padding:18px 14px;text-align:center;color:var(--sub);font-size:13px;
+}
+
+/* 締切 */
+.dl{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--line)}
+.dl .d-left{
+  flex:0 0 62px;text-align:center;font-weight:700;font-size:15px;line-height:1.15;
+  border-radius:9px;padding:5px 0;background:var(--bg);
+}
+.dl .d-left small{display:block;font-size:10px;font-weight:500;color:var(--sub)}
+.dl.urgent .d-left{background:#ffe6e6;color:#c33a4e}
+.dl .d-body{flex:1;min-width:0}
+.dl .d-name{font-weight:600;word-break:break-word}
+.dl .d-when{font-size:12px;color:var(--sub)}
+@media (prefers-color-scheme: dark){ .dl.urgent .d-left{background:#4a2226;color:#ffb3ab} }
+
+/* お金 */
+.money{display:flex;align-items:baseline;gap:8px}
+.money b{font-size:28px;font-weight:800;letter-spacing:-.02em}
+.money span{font-size:12px;color:var(--sub)}
+.mbar{display:flex;height:9px;border-radius:5px;overflow:hidden;margin:11px 0 9px;background:var(--bg)}
+.mrow{display:flex;align-items:center;gap:8px;font-size:13px;padding:3px 0}
+.mrow .swatch{width:9px;height:9px;border-radius:50%;flex:0 0 9px}
+.mrow .amt{margin-left:auto;font-variant-numeric:tabular-nums}
+
+/* ---------- カウントダウン ---------- */
+.countdown{
+  margin:10px 0 0; background:var(--panel); border:1px solid var(--line);
+  border-radius:var(--radius); padding:11px 13px; box-shadow:var(--shadow);
+  display:flex; align-items:center; gap:11px;
+}
+.countdown .cd-bar{width:4px;align-self:stretch;border-radius:2px;background:var(--accent)}
+.countdown .cd-body{flex:1;min-width:0}
+.countdown .cd-label{font-size:11px;color:var(--sub);letter-spacing:.04em}
+.countdown .cd-title{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.countdown .cd-num{font-size:22px;font-weight:700;line-height:1.1;text-align:center;min-width:56px}
+.countdown .cd-num span{font-size:11px;font-weight:500;color:var(--sub);display:block}
+.countdown .cd-num em{font-size:19px;font-style:normal;color:var(--accent)}
+
+/* ---------- フィルタ ---------- */
+.filters{display:flex;gap:6px;overflow-x:auto;padding:10px 0 2px;-webkit-overflow-scrolling:touch}
+.filters::-webkit-scrollbar{display:none}
+.chip{
+  flex:0 0 auto;display:flex;align-items:center;gap:6px;
+  background:var(--panel);border:1px solid var(--line);border-radius:999px;
+  padding:6px 12px;font-size:13px;white-space:nowrap;
+}
+.chip .swatch{width:9px;height:9px;border-radius:50%;flex:0 0 9px}
+.chip.off{opacity:.4}
+.chip.manage{color:var(--sub)}
+
+/* ---------- カレンダー ---------- */
+.cal{
+  margin-top:10px;background:var(--panel);border:1px solid var(--line);
+  border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow);
+}
+.dow{display:grid;grid-template-columns:repeat(7,1fr);border-bottom:1px solid var(--line)}
+.dow div{text-align:center;font-size:11px;color:var(--sub);padding:7px 0}
+.dow div:first-child{color:#e26a7e}
+.dow div:last-child{color:#6d90c4}
+.grid{display:grid;grid-template-columns:repeat(7,1fr)}
+.cell{
+  border-right:1px solid var(--line);border-bottom:1px solid var(--line);
+  min-height:74px;padding:4px 3px;text-align:left;background:none;
+  display:flex;flex-direction:column;gap:2px;overflow:hidden;
+}
+.cell:nth-child(7n){border-right:none}
+.cell.out{opacity:.32}
+.cell .dnum{font-size:12px;font-weight:600;line-height:1.4;padding-left:2px}
+.cell.sun .dnum{color:#e26a7e}
+.cell.sat .dnum{color:#6d90c4}
+.cell.holi .dnum{color:#e26a7e}
+.cell.today .dnum{
+  background:var(--accent);color:#fff;border-radius:50%;
+  width:20px;height:20px;display:grid;place-items:center;padding:0;
+}
+.cell.sel{background:rgba(255,122,168,.10);box-shadow:inset 0 0 0 2px var(--accent)}
+.ev{
+  font-size:10px;line-height:1.35;border-radius:4px;padding:1px 4px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#fff;
+}
+.more{font-size:9px;color:var(--sub);padding-left:3px}
+/* 繰り返しの予定は「いつもの用事」なので控えめに出す。
+   毎日配信のような予定が全日を埋めると、一度きりの予定が埋もれてしまうため。 */
+.ev.rep{opacity:.5}
+@media (max-width:479px){
+  .cell{min-height:62px}
+  .ev{font-size:0;padding:0;height:5px;border-radius:3px}
+  .ev.mine{opacity:.85}
+  .ev.rep{height:3px;opacity:.55}
+}
+
+/* ---------- 選択日パネル / これから ---------- */
+.card{
+  margin-top:12px;background:var(--panel);border:1px solid var(--line);
+  border-radius:var(--radius);padding:13px;box-shadow:var(--shadow);
+}
+.card h3{margin:0 0 10px;font-size:15px;display:flex;align-items:center;gap:8px}
+.card h3 .add{margin-left:auto;font-size:12px;background:var(--accent);color:#fff;border:none;border-radius:8px;padding:6px 11px}
+.item{display:flex;gap:10px;padding:9px 0;border-top:1px solid var(--line)}
+.item .stripe{width:4px;border-radius:2px;flex:0 0 4px}
+.item .body{flex:1;min-width:0}
+.item .who{font-size:11px;color:var(--sub)}
+.item .name{font-weight:600;word-break:break-word}
+.item .meta{font-size:12px;color:var(--sub);word-break:break-word}
+/* 行の右端に縦積みで置く操作ボタン。予定の行と締切の行の両方で使う */
+.acts{display:flex;flex-direction:column;gap:5px;align-self:center;flex:0 0 auto}
+.acts button{
+  background:none;border:1px solid var(--line);border-radius:8px;
+  padding:4px 9px;font-size:12px;color:var(--sub);white-space:nowrap;
+}
+.empty{color:var(--sub);font-size:13px;padding:6px 0 2px}
+
+/* これから */
+.grp{margin-top:14px}
+.grp:first-child{margin-top:0}
+.grp .gdate{
+  display:flex;align-items:baseline;gap:8px;font-size:13px;font-weight:700;
+  padding-bottom:2px;
+}
+.grp .gdate .left{margin-left:auto;font-size:11px;font-weight:500;color:var(--sub)}
+.grp .gdate.is-today{color:var(--accent)}
+.grp .gdate .holi,.day-holi{font-size:11px;font-weight:500;color:#e26a7e}
+.search{margin-bottom:8px}
+.search input{padding:9px 11px;font-size:14px}
+.row2{display:flex;gap:8px}
+.row2>div{flex:1;min-width:0}
+/* ふだん使わない項目は畳んでおく。よく足すのは「だれの・タイトル・種類・日付」だけ */
+.more-toggle{
+  width:100%;margin-top:16px;border:1px dashed var(--line);background:none;
+  border-radius:10px;padding:10px;font-size:13px;color:var(--sub);
+}
+/* 行そのものを押して編集できるようにする */
+.item{cursor:pointer}
+.item:active{background:var(--bg)}
+.item .chev{align-self:center;color:var(--sub);font-size:18px;flex:0 0 auto;opacity:.55}
+.item .cost{font-variant-numeric:tabular-nums}
+
+/* ---------- 下部バー ---------- */
+.bar{
+  position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--panel);
+  border-top:1px solid var(--line);padding:9px 12px calc(9px + env(safe-area-inset-bottom));
+  display:flex;gap:8px;justify-content:center;
+}
+.bar button{
+  flex:1;max-width:210px;border:1px solid var(--line);background:var(--bg);
+  border-radius:11px;padding:11px 6px;font-size:13px;font-weight:600;
+}
+.bar button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* ---------- モーダル ---------- */
+.mask{position:fixed;inset:0;background:rgba(30,20,28,.5);z-index:40;display:flex;align-items:flex-end;justify-content:center}
+.sheet{
+  background:var(--panel);width:100%;max-width:560px;max-height:88vh;overflow-y:auto;
+  border-radius:18px 18px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));
+}
+@media (min-width:560px){ .mask{align-items:center} .sheet{border-radius:18px} }
+.sheet h3{margin:0 0 14px;font-size:16px}
+.sheet h4{margin:20px 0 0;font-size:13px}
+label{display:block;font-size:12px;color:var(--sub);margin:12px 0 5px}
+input[type=text],input[type=date],input[type=time],textarea,select{
+  width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;
+  background:var(--bg);color:var(--text);font:inherit;
+}
+textarea{min-height:104px;resize:vertical}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{
+  border:1px solid var(--line);background:var(--bg);border-radius:999px;
+  padding:7px 12px;font-size:13px;
+}
+.seg button.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.seg button.on.me{background:var(--me);border-color:var(--me)}
+.actions{display:flex;gap:8px;margin-top:20px}
+.actions button{flex:1;border-radius:11px;padding:12px;border:1px solid var(--line);background:var(--bg);font-weight:600}
+.actions button.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.actions button.danger{flex:0 0 auto;color:#d4536b;border-color:var(--line);background:none;padding:12px 14px}
+.hint{font-size:12px;color:var(--sub);margin:6px 0 0}
+.note{
+  font-size:12px;background:var(--bg);border:1px solid var(--line);
+  border-radius:10px;padding:9px 11px;margin-top:12px;color:var(--sub);
+}
+
+/* 推し管理 */
+.oshi-row{display:flex;align-items:center;gap:9px;padding:9px 0;border-top:1px solid var(--line)}
+.oshi-row .swatch{width:16px;height:16px;border-radius:50%;flex:0 0 16px}
+.oshi-row input[type=text]{flex:1}
+.oshi-row .del{border:none;background:none;color:var(--sub);font-size:17px;padding:0 4px}
+.colors{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.colors button{width:26px;height:26px;border-radius:50%;border:2px solid transparent}
+.colors button.on{border-color:var(--text)}
+
+/* 読み取り候補 */
+.cand{display:flex;gap:9px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line)}
+.cand input[type=checkbox]{width:19px;height:19px;margin-top:9px;flex:0 0 19px}
+.cand .c-body{flex:1;min-width:0}
+.cand .c-date{font-size:12px;color:var(--sub);margin-bottom:3px}
+
+/* 設定 */
+.setrow{display:flex;gap:8px;margin-top:8px}
+.setrow button{flex:1;border:1px solid var(--line);background:var(--bg);border-radius:11px;padding:12px 8px;font-size:13px;font-weight:600}
+.danger-zone button{width:100%;border:1px solid var(--line);background:none;color:#d4536b;border-radius:11px;padding:12px;font-weight:600;margin-top:8px}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <p class="title">
+      <span class="dotmark"></span>推し活カレンダー
+      <button class="gear" id="btn-set" aria-label="設定">⚙️</button>
+    </p>
+    <div class="tabs" role="tablist">
+      <button id="tab-home" class="on" role="tab">ホーム</button>
+      <button id="tab-cal" role="tab">カレンダー</button>
+      <button id="tab-list" role="tab">これから</button>
+    </div>
+    <div class="monthbar" id="monthbar">
+      <button class="nav" id="prev" aria-label="前の月">‹</button>
+      <h2 id="mlabel"></h2>
+      <button class="today-btn" id="gotoday">今日</button>
+      <button class="nav" id="next" aria-label="次の月">›</button>
+    </div>
+  </header>
+
+  <div class="warn" id="storewarn" hidden>
+    ⚠️ このブラウザでは予定を保存できません。ページを閉じると入力した内容は消えます。
+    プライベートブラウズを解除するか、別のブラウザでお試しください。
+  </div>
+
+  <div class="filters" id="filters"></div>
+
+  <!-- ホーム表示 -->
+  <div id="view-home">
+    <div class="sample-note" id="sample-note" hidden>
+      いま入っているのは<strong>お試し用のサンプル</strong>です。自分の推しで使いはじめましょう。
+      <div class="sn-act">
+        <button class="primary" id="sn-clear">サンプルを消して始める</button>
+        <button id="sn-keep">このまま使う</button>
+      </div>
+    </div>
+
+    <div class="hero" id="hero" hidden>
+      <div class="hero-label">つぎの推しの予定</div>
+      <div class="hero-title" id="hero-title"></div>
+      <div class="hero-sub" id="hero-sub"></div>
+      <div class="hero-count"><b id="hero-num"></b><small id="hero-unit"></small></div>
+    </div>
+    <div class="hero-none" id="hero-none" hidden>
+      これから先に推しの予定がありません。<br>下の「貼り付けて読み取り」から追加できます。
+    </div>
+
+    <div class="card" id="dl-card" hidden>
+      <h3>⏳ 迫っている締切</h3>
+      <div id="dl-list"></div>
+    </div>
+
+    <div class="card">
+      <h3><span id="home-label"></span><button class="add" id="addhere3">＋ 予定</button></h3>
+      <div id="home-list"></div>
+    </div>
+
+    <div class="card">
+      <h3>💰 今月の推し活費</h3>
+      <div class="money"><b id="money-total"></b><span id="money-count"></span></div>
+      <div id="money-break"></div>
+      <p class="hint" id="money-year"></p>
+    </div>
+
+    <div class="card">
+      <h3 id="rv-head"></h3>
+      <div class="rv">
+        <div><b id="rv-count"></b><small>推しの予定</small></div>
+        <div><b id="rv-live"></b><small>ライブ</small></div>
+        <div><b id="rv-spent"></b><small>使った金額</small></div>
+      </div>
+      <div id="rv-break"></div>
+      <p class="hint" id="rv-note"></p>
+    </div>
+  </div>
+
+  <!-- カレンダー表示 -->
+  <div id="view-cal" hidden>
+    <div class="cal">
+      <div class="dow"><div>日</div><div>月</div><div>火</div><div>水</div><div>木</div><div>金</div><div>土</div></div>
+      <div class="grid" id="grid"></div>
+    </div>
+    <div class="card">
+      <h3><span id="daylabel"></span><button class="add" id="addhere">＋ 予定</button></h3>
+      <div id="daylist"></div>
+    </div>
+  </div>
+
+  <!-- これから表示 -->
+  <div id="view-list" hidden>
+    <div class="card">
+      <h3><span>これからの予定</span><button class="add" id="addhere2">＋ 予定</button></h3>
+      <div class="search"><input type="text" id="search" placeholder="🔍 タイトル・メモで絞り込む"></div>
+      <button class="chip" id="rep-toggle" style="margin-bottom:4px"></button>
+      <div id="upcoming"></div>
+    </div>
+  </div>
+</div>
+
+<div class="bar">
+  <button class="primary" id="btn-paste">📋 貼り付けて読み取り</button>
+  <button id="btn-oshi">👤 推しを管理</button>
+</div>
+
+<!-- 予定の追加・編集 -->
+<div class="mask" id="m-event" hidden>
+  <div class="sheet">
+    <h3 id="ev-heading">予定を追加</h3>
+    <div class="note" id="ev-repeat-note" hidden>
+      この予定は繰り返しです。ここでの変更・削除は<strong>すべての回</strong>に反映されます。
+    </div>
+    <label>だれの予定？</label>
+    <div class="seg" id="ev-owner"></div>
+    <label for="ev-title">タイトル</label>
+    <input type="text" id="ev-title" placeholder="例）東京ドーム公演 / 通院">
+    <label>種類</label>
+    <div class="seg" id="ev-type"></div>
+    <div class="row2">
+      <div><label for="ev-date">日付</label><input type="date" id="ev-date"></div>
+      <div><label for="ev-time">時刻（空欄可）</label><input type="time" id="ev-time"></div>
+    </div>
+    <button class="more-toggle" id="ev-more-toggle"></button>
+    <div id="ev-more" hidden>
+      <div class="row2">
+        <div><label for="ev-place">場所</label><input type="text" id="ev-place" placeholder="例）東京ドーム"></div>
+        <div><label for="ev-cost">かかるお金（円）</label><input type="number" id="ev-cost" min="0" step="100" inputmode="numeric" placeholder="0"></div>
+      </div>
+      <label>繰り返し</label>
+      <div class="seg" id="ev-repeat"></div>
+      <div id="ev-until-wrap" hidden>
+        <label for="ev-until">いつまで（空欄なら期限なし）</label>
+        <input type="date" id="ev-until">
+      </div>
+      <label for="ev-memo">メモ</label>
+      <input type="text" id="ev-memo" placeholder="例）チケット当落 8/1">
+    </div>
+    <div class="actions" id="ev-extra" hidden style="margin-top:14px">
+      <button id="ev-done"></button>
+      <button id="ev-copy">複製して新規</button>
+    </div>
+    <div class="actions">
+      <button class="danger" id="ev-del" hidden>削除</button>
+      <button id="ev-cancel">やめる</button>
+      <button class="primary" id="ev-save">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 推しの管理 -->
+<div class="mask" id="m-oshi" hidden>
+  <div class="sheet">
+    <h3>推しを管理</h3>
+    <div id="oshi-list"></div>
+    <div class="actions" style="margin-top:14px">
+      <button id="oshi-add">＋ 推しを追加</button>
+      <button class="primary" id="oshi-close">閉じる</button>
+    </div>
+    <p class="hint">名前を書き換えるとその場で反映されます。色をタップすると変わります。</p>
+  </div>
+</div>
+
+<!-- 貼り付けて読み取り -->
+<div class="mask" id="m-paste" hidden>
+  <div class="sheet">
+    <h3>貼り付けて読み取り</h3>
+    <p class="hint" style="margin:0 0 8px">公式サイトやSNSの告知文をそのまま貼ってください。日付らしいところを拾って候補にします。</p>
+    <label>だれの予定として読み取る？</label>
+    <div class="seg" id="ps-owner"></div>
+    <label for="ps-text">貼り付け先</label>
+    <textarea id="ps-text" placeholder="例）&#10;8/15(金) 18:00 開演　夏フェス2026 出演&#10;2026年9月3日 ニューシングル発売&#10;10/1 21:00〜 インスタライブ"></textarea>
+    <div class="actions" style="margin-top:12px">
+      <button id="ps-cancel">やめる</button>
+      <button class="primary" id="ps-read">読み取る</button>
+    </div>
+    <div id="ps-result"></div>
+  </div>
+</div>
+
+<!-- 設定 -->
+<div class="mask" id="m-set" hidden>
+  <div class="sheet">
+    <h3>設定</h3>
+
+    <h4>データの持ち出しと引き継ぎ</h4>
+    <p class="hint" style="margin-top:4px">
+      予定はこの端末のブラウザの中だけに保存されています。<strong>ブラウザのデータを消すと予定も消えます。</strong>
+      機種変更のときも自動では移りません。ときどき書き出して保管してください。
+    </p>
+    <div class="setrow">
+      <button id="set-export">💾 書き出す</button>
+      <button id="set-import">📂 読み込む</button>
+    </div>
+    <input type="file" id="set-file" accept="application/json,.json" hidden>
+
+    <h4>ふだん使うカレンダーへ移す</h4>
+    <p class="hint" style="margin-top:4px">
+      推しの予定を、スマホやGoogleのカレンダーに取り込める形（.ics）で書き出します。
+      取り込んだあとは向こう側のデータになるので、ここで直しても反映されません。
+    </p>
+    <div class="setrow">
+      <button id="set-ics">📅 .ics で書き出す</button>
+    </div>
+
+    <h4>アプリについて</h4>
+    <p class="hint" style="margin-top:4px">
+      推し活カレンダー <span id="set-ver"></span><br>
+      いま <span id="set-count"></span> を保存しています。
+    </p>
+
+    <h4 style="color:#d4536b">全部消す</h4>
+    <div class="danger-zone">
+      <button id="set-reset">すべての推しと予定を削除する</button>
+    </div>
+    <p class="hint">元に戻せません。先に「書き出す」で保管してから実行してください。</p>
+
+    <div class="actions">
+      <button class="primary" id="set-close">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+/* =========================================================
+   推し活カレンダー
+   自分の予定と推しのスケジュールを同じカレンダーの上に並べる。
+
+   ・保存先はこの端末のブラウザ（localStorage）のみ。サーバーへは何も送らない
+   ・外部サイトからの自動取得は行わない（理由は knowledge/external-data-fetch.md）
+   ========================================================= */
+
+const APP_VERSION = '2.2.0';
+const STORE_KEY = 'oshi-cal-v1';
+const PALETTE = ['#ff7aa8','#7ec8e3','#ffc25c','#9ad6a3','#c39aeb','#ff9f7a','#6fd0c4','#e88fb8'];
+const TYPES = [
+  {id:'live',    label:'ライブ', icon:'🎤'},
+  {id:'stream',  label:'配信',   icon:'📺'},
+  {id:'release', label:'発売',   icon:'💿'},
+  {id:'deadline',label:'締切',   icon:'🎫'},   // 申込・当落・入金など、逃すと取り返しがつかないもの
+  {id:'bday',    label:'誕生日', icon:'🎂'},
+  {id:'other',   label:'その他', icon:'📌'}
+];
+const DEADLINE_WATCH = 30;   // 締切を「迫っている」として拾う日数
+const URGENT_DAYS = 3;       // これ以内は赤くする
+const REPEATS = [
+  {id:'',        label:'なし'},
+  {id:'daily',   label:'毎日'},
+  {id:'weekly',  label:'毎週'},
+  {id:'monthly', label:'毎月'}
+];
+const DOW = ['日','月','火','水','木','金','土'];
+const LIST_DAYS = 400;   // 「これから」で先読みする日数
+const LIST_MAX  = 80;    // 「これから」に並べる最大件数
+
+/* ---------- 日付ユーティリティ（すべてローカル時刻で扱う） ---------- */
+const pad = n => String(n).padStart(2,'0');
+const ymd = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const fromYmd = s => { const [y,m,d] = s.split('-').map(Number); return new Date(y, m-1, d); };
+// 開きっぱなしで日付をまたぐことがあるため、const にせず更新できるようにしてある
+let TODAY = ymd(new Date());
+const daysBetween = (a,b) => Math.round((fromYmd(b) - fromYmd(a)) / 86400000);
+const addDays = (s,n) => { const d = fromYmd(s); d.setDate(d.getDate()+n); return ymd(d); };
+
+/* ---------- 日本の祝日 ----------
+   祝日法にもとづいて計算する（春分・秋分の近似式が有効な1980〜2099年が対象）。
+   ⚠️ 式典などの臨時の祝日、法改正による移動は含まない。 */
+const holidayCache = {};
+function holidaysOf(year){
+  if(holidayCache[year]) return holidayCache[year];
+  const map = {};
+  const key = (m,d) => `${year}-${pad(m)}-${pad(d)}`;
+  // その月の第n月曜が何日か
+  const nthMonday = (m,n) => 1 + ((8 - new Date(year, m-1, 1).getDay()) % 7) + (n-1)*7;
+  const y = year - 1980, leap = Math.floor(y/4);
+  const shunbun = Math.floor(20.8431 + 0.242194*y - leap);
+  const shubun  = Math.floor(23.2488 + 0.242194*y - leap);
+
+  [
+    [1,1,'元日'], [1,nthMonday(1,2),'成人の日'],
+    [2,11,'建国記念の日'], [2,23,'天皇誕生日'],
+    [3,shunbun,'春分の日'],
+    [4,29,'昭和の日'], [5,3,'憲法記念日'], [5,4,'みどりの日'], [5,5,'こどもの日'],
+    [7,nthMonday(7,3),'海の日'], [8,11,'山の日'],
+    [9,nthMonday(9,3),'敬老の日'], [9,shubun,'秋分の日'],
+    [10,nthMonday(10,2),'スポーツの日'],
+    [11,3,'文化の日'], [11,23,'勤労感謝の日']
+  ].forEach(([m,d,name]) => { map[key(m,d)] = name; });
+
+  // 振替休日：日曜と重なった祝日の、次にくる休日でない日
+  Object.keys(map).sort().forEach(k => {
+    if(fromYmd(k).getDay() !== 0) return;
+    let d = addDays(k,1);
+    while(map[d]) d = addDays(d,1);
+    map[d] = '振替休日';
+  });
+  // 国民の休日：祝日と祝日に挟まれた日（日曜を除く）
+  Object.keys(map).sort().forEach(k => {
+    const mid = addDays(k,1);
+    if(map[addDays(k,2)] && !map[mid] && fromYmd(mid).getDay() !== 0) map[mid] = '国民の休日';
+  });
+
+  holidayCache[year] = map;
+  return map;
+}
+const holidayName = date => holidaysOf(+date.slice(0,4))[date] || '';
+
+// load() → seed() から呼ばれる。state の初期化より前に必要なので関数宣言にしてある。
+function uid(){ return Math.random().toString(36).slice(2,10); }
+
+/* ---------- 状態 ---------- */
+let storageOK = true;   // localStorage が使えるか。使えない端末でも動作は止めない
+let seeded = false;
+let state = load();
+if(seeded) save();      // 初回のサンプルはすぐ保存する（開くたびに日付がずれるのを防ぐ）
+let view = fromYmd(TODAY); view.setDate(1);
+let selected = TODAY;
+let editingId = null;
+let mode = 'home';      // 'home' | 'cal' | 'list'
+
+function load(){
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    if(raw) return normalize(JSON.parse(raw));
+  }catch(e){
+    // プライベートブラウズなどで localStorage 自体が例外を投げることがある。
+    // ここで止まると以降の処理が全て動かなくなるので、必ず握りつぶして続行する。
+    storageOK = false;
+  }
+  seeded = true;
+  return normalize(seed());   // 手書きのサンプルにも同じ形を保証させる
+}
+function save(){
+  try{
+    localStorage.setItem(STORE_KEY, JSON.stringify(state));
+  }catch(e){
+    storageOK = false;
+    const w = document.getElementById('storewarn');
+    if(w) w.hidden = false;
+  }
+}
+
+/* 読み込んだデータに欠けている項目を補う（古い保存形式・書き出しファイル対策） */
+function normalize(o){
+  const d = (o && typeof o === 'object') ? o : {};
+  return {
+    oshis:  Array.isArray(d.oshis)  ? d.oshis.filter(x => x && x.id).map(x => ({
+              id:String(x.id), name:String(x.name || '推し'), color:String(x.color || PALETTE[0])
+            })) : [],
+    events: Array.isArray(d.events) ? d.events.filter(x => x && x.date && x.title).map(x => ({
+              id:String(x.id || uid()), date:String(x.date), time:String(x.time || ''),
+              title:String(x.title), type:String(x.type || 'other'), memo:String(x.memo || ''),
+              ownerId:String(x.ownerId || 'me'),
+              place:String(x.place || ''),
+              cost:Math.max(0, Math.round(Number(x.cost) || 0)),
+              done:!!x.done,          // 締切を済ませたか（申込・入金など）
+              repeat:['daily','weekly','monthly'].includes(x.repeat) ? x.repeat : '',
+              until:String(x.until || ''),
+              skips:Array.isArray(x.skips) ? x.skips.map(String) : []   // 繰り返しのうち休みにした回
+            })) : [],
+    hidden: Array.isArray(d.hidden) ? d.hidden.map(String) : [],
+    // 「これから」に繰り返しの予定も並べるか。既定は畳む（毎日配信が一覧を埋めてしまうため）
+    showRepeats: !!d.showRepeats,
+    isSample: !!d.isSample,     // サンプルのまま使われないよう案内を出すため
+    // 前回どの推し・どの種類で追加したかを覚えておく。毎回選び直すのが煩わしいため
+    lastOwner: String(d.lastOwner || ''),
+    lastType: String(d.lastType || '')
+  };
+}
+
+/* 初回はサンプルを入れておく（何ができるか触って分かるように） */
+function seed(){
+  const plus = n => addDays(TODAY, n);
+  const a = uid(), b = uid();
+  return {
+    oshis:[ {id:a, name:'推しA（サンプル）', color:PALETTE[0]},
+            {id:b, name:'推しB（サンプル）', color:PALETTE[1]} ],
+    events:[
+      // 過去のぶん。「ふりかえり」に何が積み上がるのかを、初回から見せるために入れてある
+      {id:uid(), date:plus(-46),time:'17:00', title:'春のツアー 名古屋',       type:'live',     memo:'',          place:'日本ガイシホール', cost:8800, ownerId:a, repeat:'', done:true},
+      {id:uid(), date:plus(-21),time:'',      title:'写真集 発売',             type:'release',  memo:'',          place:'',           cost:3300, ownerId:b,  repeat:''},
+      {id:uid(), date:plus(2),  time:'18:00', title:'ワンマンライブ 東京',     type:'live',     memo:'開場17:00', place:'東京ドーム', cost:9800, ownerId:a,  repeat:''},
+      {id:uid(), date:plus(2),  time:'10:00', title:'歯医者',                 type:'other',    memo:'',          place:'',           cost:3000, ownerId:'me',repeat:''},
+      {id:uid(), date:plus(3),  time:'23:59', title:'ツアー先行 申込締切',     type:'deadline', memo:'ファンクラブ枠', place:'',      cost:0,    ownerId:a,  repeat:''},
+      {id:uid(), date:plus(6),  time:'21:00', title:'インスタライブ',         type:'stream',   memo:'',          place:'',           cost:0,    ownerId:b,  repeat:''},
+      {id:uid(), date:plus(9),  time:'',      title:'当落発表',               type:'deadline', memo:'',          place:'',           cost:0,    ownerId:a,  repeat:''},
+      {id:uid(), date:plus(11), time:'',      title:'ニューシングル発売',     type:'release',  memo:'予約済み',  place:'',           cost:1650, ownerId:a,  repeat:''},
+      {id:uid(), date:plus(18), time:'',      title:'誕生日',                 type:'bday',     memo:'',          place:'',           cost:0,    ownerId:b,  repeat:''},
+      {id:uid(), date:plus(1),  time:'19:30', title:'友人と夕飯',             type:'other',    memo:'',          place:'',           cost:0,    ownerId:'me',repeat:''},
+      {id:uid(), date:TODAY,    time:'22:00', title:'毎日配信',               type:'stream',   memo:'',          place:'',           cost:0,    ownerId:a,  repeat:'daily'}
+    ],
+    hidden:[],
+    showRepeats:false,
+    isSample:true
+  };
+}
+
+/* ---------- 参照ヘルパ ---------- */
+const owners = () => [{id:'me', name:'自分', color:getVar('--me')}, ...state.oshis];
+const ownerOf = id => owners().find(o => o.id === id) || {id, name:'（不明）', color:'#999'};
+const isShown = id => !state.hidden.includes(id);
+const typeOf = id => TYPES.find(t => t.id === id) || TYPES[4];
+function getVar(name){
+  try{
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || '#7c8ba1';
+  }catch(e){ return '#7c8ba1'; }
+}
+
+/* その予定が、指定日に発生するか（繰り返しを展開する） */
+function occursOn(e, date){
+  if(date < e.date) return false;
+  if(!e.repeat) return date === e.date;
+  if(e.until && date > e.until) return false;
+  if(e.skips && e.skips.includes(date)) return false;   // その回だけ休み
+  if(e.repeat === 'daily') return true;
+  const a = fromYmd(e.date), b = fromYmd(date);
+  if(e.repeat === 'weekly')  return a.getDay() === b.getDay();
+  if(e.repeat === 'monthly') return a.getDate() === b.getDate();
+  return false;
+}
+function eventsOn(date){
+  return state.events
+    .filter(e => isShown(e.ownerId) && occursOn(e, date))
+    .sort((x,y) => (x.time || '99:99').localeCompare(y.time || '99:99'));
+}
+
+/* =========================================================
+   描画
+   ========================================================= */
+function render(){
+  document.getElementById('storewarn').hidden  = storageOK;
+  document.getElementById('monthbar').hidden   = (mode !== 'cal');
+  document.getElementById('view-home').hidden  = (mode !== 'home');
+  document.getElementById('view-cal').hidden   = (mode !== 'cal');
+  document.getElementById('view-list').hidden  = (mode !== 'list');
+  ['home','cal','list'].forEach(m =>
+    document.getElementById('tab-' + m).classList.toggle('on', mode === m));
+
+  renderFilters();
+  if(mode === 'home')     renderHome();
+  else if(mode === 'cal'){ renderGrid(); renderDay(); }
+  else                     renderUpcoming();
+}
+
+/* ---------- ホーム ---------- */
+function renderHome(){
+  document.getElementById('sample-note').hidden = !state.isSample;
+  renderHero();
+  renderDeadlines();
+  renderHomeList();
+  renderMoney();
+  renderReview();
+}
+
+/* つぎの推しの予定。一度きりの予定を優先して探す。
+   毎日配信のような繰り返しを拾うと、毎日「今日」と出続けて
+   本来の楽しみ（ライブなど）が永久に隠れてしまうため。 */
+function nextOshiEvent(){
+  let found = null, fallback = null;
+  for(let i = 0; i <= LIST_DAYS && !found; i++){
+    const date = addDays(TODAY, i);
+    const here = eventsOn(date).filter(e => e.ownerId !== 'me');
+    const once = here.find(e => !e.repeat);
+    if(once) found = {e:once, date};
+    else if(!fallback && here[0]) fallback = {e:here[0], date};
+  }
+  return found || fallback;
+}
+
+function renderHero(){
+  const hero = document.getElementById('hero'), none = document.getElementById('hero-none');
+  const found = nextOshiEvent();
+  hero.hidden = !found; none.hidden = !!found;
+  if(!found) return;
+
+  const {e, date} = found;
+  const o = ownerOf(e.ownerId), n = daysBetween(TODAY, date), d = fromYmd(date);
+  hero.style.background = `linear-gradient(135deg, ${o.color} 0%, ${shade(o.color, -28)} 100%)`;
+  document.getElementById('hero-title').textContent = `${typeOf(e.type).icon} ${e.title}`;
+  document.getElementById('hero-sub').textContent =
+    `${o.name}・${d.getMonth()+1}/${d.getDate()}（${DOW[d.getDay()]}）`
+    + (e.time ? ' ' + e.time : '') + (e.place ? '　' + e.place : '');
+  document.getElementById('hero-num').textContent  = n === 0 ? '今日' : String(n);
+  document.getElementById('hero-unit').textContent = n === 0 ? '' : (n === 1 ? '日後' : '日後');
+  hero.onclick = () => { mode = 'cal'; selected = date; view = fromYmd(date); view.setDate(1); render(); };
+}
+
+/* 色を暗く／明るくする。グラデーションの相方を作るためだけの用途 */
+function shade(hex, amt){
+  if(!/^#[0-9a-f]{6}$/i.test(hex)) return hex;   // 想定外の書き方ならそのまま返す
+  const n = parseInt(hex.slice(1), 16);
+  const c = [(n >> 16) & 255, (n >> 8) & 255, n & 255]
+    .map(v => Math.max(0, Math.min(255, v + amt)));
+  return '#' + c.map(v => v.toString(16).padStart(2,'0')).join('');
+}
+
+/* 締切だけを別枠で見せる。逃すと取り返しがつかないので、埋もれさせない。 */
+function renderDeadlines(){
+  const card = document.getElementById('dl-card'), box = document.getElementById('dl-list');
+  const found = [];
+  for(let i = 0; i <= DEADLINE_WATCH && found.length < 5; i++){
+    const date = addDays(TODAY, i);
+    // 済ませたものは出さない。申し込んだ後も出続けると、見るのをやめてしまう。
+    eventsOn(date).filter(e => e.type === 'deadline' && !e.done).forEach(e => found.push({e, date, n:i}));
+  }
+  card.hidden = !found.length;
+  if(!found.length) return;
+
+  box.textContent = '';
+  found.forEach(({e, date, n}) => {
+    const o = ownerOf(e.ownerId), d = fromYmd(date);
+    const row = document.createElement('div');
+    row.className = 'dl' + (n <= URGENT_DAYS ? ' urgent' : '');
+
+    const left = document.createElement('div');
+    left.className = 'd-left';
+    left.textContent = n === 0 ? '今日' : String(n);
+    if(n !== 0){ const s = document.createElement('small'); s.textContent = '日後'; left.appendChild(s); }
+
+    const body = document.createElement('div');
+    body.className = 'd-body';
+    const nm = document.createElement('div');
+    nm.className = 'd-name'; nm.textContent = e.title;
+    const wh = document.createElement('div');
+    wh.className = 'd-when';
+    wh.textContent = `${o.name}・${d.getMonth()+1}/${d.getDate()}（${DOW[d.getDay()]}）`
+      + (e.time ? ' ' + e.time : '') + (e.memo ? '　' + e.memo : '');
+    body.append(nm, wh);
+
+    const acts = document.createElement('div');
+    acts.className = 'acts';
+    const done = document.createElement('button');
+    done.textContent = '済にする';
+    done.onclick = ev => { ev.stopPropagation(); e.done = true; save(); render(); };
+    acts.appendChild(done);
+
+    row.style.cursor = 'pointer';
+    row.setAttribute('role', 'button');
+    row.tabIndex = 0;
+    row.onclick = () => openEvent(e);
+    row.onkeydown = ev => {
+      if(ev.key === 'Enter' || ev.key === ' '){ ev.preventDefault(); openEvent(e); }
+    };
+
+    row.append(left, body, acts);
+    box.appendChild(row);
+  });
+}
+
+/* 今日と明日。まず目に入るべきはこの2日分。 */
+function renderHomeList(){
+  const d = fromYmd(TODAY);
+  document.getElementById('home-label').textContent =
+    `きょう・あす（${d.getMonth()+1}/${d.getDate()}〜）`;
+  const box = document.getElementById('home-list');
+  box.textContent = '';
+  let count = 0;
+  [0,1].forEach(i => {
+    const date = addDays(TODAY, i);
+    const list = eventsOn(date);
+    if(!list.length) return;
+    const head = document.createElement('div');
+    head.className = 'gdate' + (i === 0 ? ' is-today' : '');
+    head.style.marginTop = count ? '12px' : '0';
+    head.append(i === 0 ? '今日' : '明日');
+    const holi = holidayName(date);
+    if(holi){
+      const h = document.createElement('span');
+      h.className = 'holi'; h.textContent = '　' + holi;
+      head.appendChild(h);
+    }
+    box.appendChild(head);
+    list.forEach(e => { box.appendChild(itemRow(e, date)); count++; });
+  });
+  if(!count){
+    const p = document.createElement('p');
+    p.className = 'empty'; p.textContent = '今日と明日の予定はありません。';
+    box.appendChild(p);
+  }
+}
+
+/* 期間内に発生する回数ぶんの費用を合算する（繰り返しは回数分かかる） */
+function spendBetween(from, to){
+  const per = {};
+  let total = 0, times = 0;
+  for(let d = from; d <= to; d = addDays(d, 1)){
+    eventsOn(d).forEach(e => {
+      if(!e.cost) return;
+      total += e.cost; times++;
+      per[e.ownerId] = (per[e.ownerId] || 0) + e.cost;
+    });
+  }
+  return {total, per, times};
+}
+const yen = n => '¥' + Number(n || 0).toLocaleString('ja-JP');
+
+function renderMoney(){
+  const d = fromYmd(TODAY), y = d.getFullYear(), m = d.getMonth();
+  const mFrom = ymd(new Date(y, m, 1)), mTo = ymd(new Date(y, m+1, 0));
+  const {total, per, times} = spendBetween(mFrom, mTo);
+
+  document.getElementById('money-total').textContent = yen(total);
+  document.getElementById('money-count').textContent = times ? `（${times}件）` : '（まだありません）';
+
+  // 推し別の内訳。多い順に、割合の帯つきで
+  const box = document.getElementById('money-break');
+  box.textContent = '';
+  const rows = Object.entries(per).sort((a,b) => b[1] - a[1]);
+  if(rows.length){
+    const bar = document.createElement('div');
+    bar.className = 'mbar';
+    rows.forEach(([id, v]) => {
+      const seg = document.createElement('div');
+      seg.style.cssText = `width:${(v/total*100).toFixed(1)}%;background:${ownerOf(id).color}`;
+      bar.appendChild(seg);
+    });
+    box.appendChild(bar);
+    rows.forEach(([id, v]) => {
+      const o = ownerOf(id);
+      const r = document.createElement('div');
+      r.className = 'mrow';
+      const sw = document.createElement('span');
+      sw.className = 'swatch'; sw.style.background = o.color;
+      const amt = document.createElement('span');
+      amt.className = 'amt'; amt.textContent = yen(v);
+      r.append(sw, o.name, amt);
+      box.appendChild(r);
+    });
+  }
+
+  const year = spendBetween(ymd(new Date(y,0,1)), ymd(new Date(y,11,31))).total;
+  document.getElementById('money-year').textContent =
+    `${y}年の合計は ${yen(year)}　／　予定に金額を入れると自動で集計されます`;
+}
+
+/* ---------- ふりかえり ----------
+   今年ここまでに何回あったかを数える。カレンダーを月ごとに遡らないと
+   過去が見えなかったので、年単位で数えて見せる。 */
+function renderReview(){
+  const y = fromYmd(TODAY).getFullYear();
+  const from = ymd(new Date(y,0,1));
+  const to = TODAY;                        // 今日まで。これからの分は「これから」で見る
+  let count = 0, live = 0, spent = 0;
+  const per = {};
+  for(let d = from; d <= to; d = addDays(d, 1)){
+    eventsOn(d).forEach(e => {
+      if(e.ownerId === 'me') return;       // 自分の予定は推し活の回数に数えない
+      count++;
+      if(e.type === 'live') live++;
+      spent += e.cost || 0;
+      per[e.ownerId] = (per[e.ownerId] || 0) + 1;
+    });
+  }
+  document.getElementById('rv-head').textContent = `📖 ${y}年のふりかえり`;
+  document.getElementById('rv-count').textContent = count;
+  document.getElementById('rv-live').textContent  = live;
+  document.getElementById('rv-spent').textContent = spent ? yen(spent) : '¥0';
+
+  const box = document.getElementById('rv-break');
+  box.textContent = '';
+  Object.entries(per).sort((a,b) => b[1] - a[1]).forEach(([id, n]) => {
+    const o = ownerOf(id);
+    const r = document.createElement('div');
+    r.className = 'mrow';
+    const sw = document.createElement('span');
+    sw.className = 'swatch'; sw.style.background = o.color;
+    const amt = document.createElement('span');
+    amt.className = 'amt'; amt.textContent = `${n}回`;
+    r.append(sw, o.name, amt);
+    box.appendChild(r);
+  });
+  document.getElementById('rv-note').textContent = count
+    ? `1月1日から今日までの合計です`
+    : `今年はまだ記録がありません。予定を入れると、ここに積み上がっていきます。`;
+}
+
+function renderFilters(){
+  const box = document.getElementById('filters');
+  box.textContent = '';
+  owners().forEach(o => {
+    const b = document.createElement('button');
+    b.className = 'chip' + (isShown(o.id) ? '' : ' off');
+    b.setAttribute('aria-pressed', String(isShown(o.id)));
+    const sw = document.createElement('span');
+    sw.className = 'swatch'; sw.style.background = o.color;
+    b.appendChild(sw);
+    b.append(o.name);
+    b.onclick = () => {
+      state.hidden = isShown(o.id) ? [...state.hidden, o.id] : state.hidden.filter(x => x !== o.id);
+      save(); render();
+    };
+    box.appendChild(b);
+  });
+  const m = document.createElement('button');
+  m.className = 'chip manage'; m.textContent = '＋ 推しを追加';
+  m.onclick = openOshi;
+  box.appendChild(m);
+}
+
+function renderGrid(){
+  const y = view.getFullYear(), mo = view.getMonth();
+  const lbl = document.getElementById('mlabel');
+  lbl.textContent = `${mo+1}月`;
+  const small = document.createElement('small'); small.textContent = `${y}年`;
+  lbl.appendChild(small);
+
+  const first = new Date(y, mo, 1);
+  const start = new Date(first); start.setDate(1 - first.getDay());
+  const last = new Date(y, mo+1, 0);
+  const cells = Math.ceil((first.getDay() + last.getDate()) / 7) * 7;
+
+  const grid = document.getElementById('grid');
+  grid.textContent = '';
+  for(let i = 0; i < cells; i++){
+    const d = new Date(start); d.setDate(start.getDate() + i);
+    const key = ymd(d);
+    const list = eventsOn(key);
+    const holi = holidayName(key);
+    const cell = document.createElement('button');
+    cell.className = 'cell'
+      + (d.getMonth() !== mo ? ' out' : '')
+      + (d.getDay() === 0 ? ' sun' : '') + (d.getDay() === 6 ? ' sat' : '')
+      + (holi ? ' holi' : '')
+      + (key === TODAY ? ' today' : '') + (key === selected ? ' sel' : '');
+    cell.setAttribute('aria-label',
+      `${d.getMonth()+1}月${d.getDate()}日 ${holi ? holi + ' ' : ''}`
+      + `${list.length ? '予定' + list.length + '件' : '予定なし'}`);
+
+    const dn = document.createElement('span');
+    dn.className = 'dnum'; dn.textContent = String(d.getDate());
+    cell.appendChild(dn);
+
+    list.slice(0,3).forEach(e => {
+      const chip = document.createElement('div');
+      chip.className = 'ev' + (e.ownerId === 'me' ? ' mine' : '') + (e.repeat ? ' rep' : '');
+      chip.style.background = ownerOf(e.ownerId).color;
+      chip.textContent = `${typeOf(e.type).icon}${e.title}`;
+      cell.appendChild(chip);
+    });
+    if(list.length > 3){
+      const more = document.createElement('div');
+      more.className = 'more'; more.textContent = `+${list.length - 3}`;
+      cell.appendChild(more);
+    }
+    cell.onclick = () => {
+      selected = key;
+      if(d.getMonth() !== mo) view = new Date(d.getFullYear(), d.getMonth(), 1);
+      render();
+      // その日の中身は画面の下にあって見えないことが多い。押したら送ってやる。
+      const card = document.querySelector('#view-cal .card');
+      if(card.getBoundingClientRect().bottom > innerHeight){
+        card.scrollIntoView({behavior:'smooth', block:'nearest'});
+      }
+    };
+    grid.appendChild(cell);
+  }
+}
+
+function renderDay(){
+  const d = fromYmd(selected);
+  const lbl = document.getElementById('daylabel');
+  lbl.textContent = `${d.getMonth()+1}月${d.getDate()}日（${DOW[d.getDay()]}）`
+    + (selected === TODAY ? ' ・今日' : '');
+  const holi = holidayName(selected);
+  if(holi){
+    const h = document.createElement('span');
+    h.className = 'day-holi'; h.textContent = '　' + holi;
+    lbl.appendChild(h);
+  }
+
+  const box = document.getElementById('daylist');
+  box.textContent = '';
+  const list = eventsOn(selected);
+  if(!list.length){
+    const p = document.createElement('p');
+    p.className = 'empty'; p.textContent = '予定はありません。';
+    box.appendChild(p);
+    return;
+  }
+  list.forEach(e => box.appendChild(itemRow(e, selected)));
+}
+
+function renderUpcoming(){
+  // 繰り返しの予定は既定で畳む。毎日配信のような予定があると
+  // 一覧が全日で埋まり、一度きりの予定が探せなくなるため。
+  const repCount = state.events.filter(e => e.repeat && isShown(e.ownerId)).length;
+  const tg = document.getElementById('rep-toggle');
+  tg.hidden = !repCount;
+  tg.className = 'chip' + (state.showRepeats ? '' : ' off');
+  tg.setAttribute('aria-pressed', String(state.showRepeats));
+  tg.textContent = state.showRepeats
+    ? `🔁 繰り返しの予定を表示中（${repCount}件）`
+    : `🔁 繰り返しの予定 ${repCount}件を隠しています`;
+  tg.onclick = () => { state.showRepeats = !state.showRepeats; save(); renderUpcoming(); };
+
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  const hit = e => !q || (e.title + ' ' + e.memo).toLowerCase().includes(q);
+
+  const box = document.getElementById('upcoming');
+  box.textContent = '';
+  let count = 0;
+  for(let i = 0; i <= LIST_DAYS && count < LIST_MAX; i++){
+    const date = addDays(TODAY, i);
+    const list = eventsOn(date).filter(e => (state.showRepeats || !e.repeat) && hit(e));
+    if(!list.length) continue;
+
+    const d = fromYmd(date);
+    const grp = document.createElement('div');
+    grp.className = 'grp';
+    const head = document.createElement('div');
+    head.className = 'gdate' + (date === TODAY ? ' is-today' : '');
+    head.append(`${d.getMonth()+1}月${d.getDate()}日（${DOW[d.getDay()]}）`);
+    const holi = holidayName(date);
+    if(holi){
+      const h = document.createElement('span');
+      h.className = 'holi'; h.textContent = '　' + holi;
+      head.appendChild(h);
+    }
+    const left = document.createElement('span');
+    left.className = 'left';
+    left.textContent = i === 0 ? '今日' : (i === 1 ? '明日' : `${i}日後`);
+    head.appendChild(left);
+    grp.appendChild(head);
+    list.forEach(e => { grp.appendChild(itemRow(e, date)); count++; });
+    box.appendChild(grp);
+  }
+  if(!count){
+    const p = document.createElement('p');
+    p.className = 'empty';
+    p.textContent = q
+      ? `「${q}」に合う予定は見つかりませんでした。`
+      : 'これからの予定はありません。下の「＋ 予定」か「貼り付けて読み取り」から追加できます。';
+    box.appendChild(p);
+  }
+}
+
+/* 予定1件の行。date は「その回の日付」（繰り返しの展開先） */
+function itemRow(e, date){
+  const o = ownerOf(e.ownerId), t = typeOf(e.type);
+  const row = document.createElement('div');
+  row.className = 'item' + (e.done ? ' done' : '');
+
+  const stripe = document.createElement('div');
+  stripe.className = 'stripe'; stripe.style.background = o.color;
+  row.appendChild(stripe);
+
+  const body = document.createElement('div');
+  body.className = 'body';
+  const who = document.createElement('div');
+  who.className = 'who';
+  who.textContent = `${o.name}・${t.icon}${t.label}`;
+  const name = document.createElement('div');
+  name.className = 'name'; name.textContent = e.title;
+  const meta = document.createElement('div');
+  meta.className = 'meta';
+  // 繰り返しの表示はここに置く。だれの予定かの行に足すと、名前が長いときに折り返してしまう。
+  meta.textContent = [
+    e.done ? '✅ 済' : '', e.time, e.place, e.cost ? yen(e.cost) : '', e.memo,
+    e.repeat ? `🔁${REPEATS.find(r => r.id === e.repeat).label}` : ''
+  ].filter(Boolean).join('　');
+  body.append(who, name);
+  if(meta.textContent) body.appendChild(meta);
+  row.appendChild(body);
+
+  const acts = document.createElement('div');
+  acts.className = 'acts';
+
+  // 締切は「済」にできる。申し込んだ後も出続けると、そのうち見なくなるため。
+  if(e.type === 'deadline'){
+    const done = document.createElement('button');
+    done.textContent = e.done ? '戻す' : '済にする';
+    done.onclick = ev => { ev.stopPropagation(); e.done = !e.done; save(); render(); };
+    acts.appendChild(done);
+  }
+  // 繰り返しは「この回だけ休み」にできる。編集だと全部の回に効いてしまうため。
+  if(e.repeat){
+    const skip = document.createElement('button');
+    skip.textContent = 'この回は休み';
+    skip.onclick = ev => {
+      ev.stopPropagation();
+      if(!confirm(`${date} の「${e.title}」だけを休みにします。ほかの回はそのままです。`)) return;
+      e.skips = [...(e.skips || []), date];
+      save(); render();
+    };
+    acts.appendChild(skip);
+  }
+  if(acts.children.length) row.appendChild(acts);
+
+  const chev = document.createElement('span');
+  chev.className = 'chev'; chev.textContent = '›';
+  row.appendChild(chev);
+
+  // 「編集」ボタンを狙わせず、行のどこを押しても開くようにした
+  row.setAttribute('role', 'button');
+  row.tabIndex = 0;
+  row.onclick = () => openEvent(e);
+  row.onkeydown = ev => {
+    if(ev.key === 'Enter' || ev.key === ' '){ ev.preventDefault(); openEvent(e); }
+  };
+  return row;
+}
+
+/* =========================================================
+   予定の追加・編集
+   ========================================================= */
+let evOwner = 'me', evType = 'live', evRepeat = '';
+let formDirty = false;   // 入力途中に背景タップで閉じて消えるのを防ぐための目印
+
+// 入力欄をひとつでも触ったら「書きかけ」とみなす
+document.getElementById('m-event').addEventListener('input', () => { formDirty = true; });
+
+/* asCopy を渡すと、中身は引き継ぎつつ「新しい予定」として開く。
+   同じツアーの複数公演を入れるとき、毎回打ち直さずに済む。 */
+function openEvent(ev, asCopy){
+  editingId = (ev && !asCopy) ? ev.id : null;
+  document.getElementById('ev-heading').textContent =
+    asCopy ? '予定を複製' : (ev ? '予定を編集' : '予定を追加');
+  drawRepeatNote(asCopy ? null : ev);
+
+  const extra = document.getElementById('ev-extra');
+  extra.hidden = !ev || asCopy;
+  if(!extra.hidden){
+    document.getElementById('ev-done').textContent = ev.done ? '未完了に戻す' : '済にする';
+    document.getElementById('ev-done').onclick = () => {
+      ev.done = !ev.done; save(); hide('m-event'); render();
+    };
+    document.getElementById('ev-copy').onclick = () => openEvent(ev, true);
+  }
+  // 新規のときは前回の選択を引き継ぐ。消された推しを指していたら先頭に戻す。
+  const remembered = owners().some(o => o.id === state.lastOwner) ? state.lastOwner : '';
+  evOwner  = ev ? ev.ownerId : (remembered || (state.oshis[0] ? state.oshis[0].id : 'me'));
+  evType   = ev ? ev.type : (state.lastType || 'live');
+  evRepeat = ev ? (ev.repeat || '') : '';
+  document.getElementById('ev-title').value = ev ? ev.title : '';
+  document.getElementById('ev-date').value  = ev ? ev.date : selected;
+  document.getElementById('ev-time').value  = ev ? (ev.time || '') : '';
+  document.getElementById('ev-place').value = ev ? (ev.place || '') : '';
+  document.getElementById('ev-cost').value  = ev && ev.cost ? String(ev.cost) : '';
+  document.getElementById('ev-until').value = ev ? (ev.until || '') : '';
+  document.getElementById('ev-memo').value  = ev ? (ev.memo || '') : '';
+  document.getElementById('ev-del').hidden  = !ev || asCopy;
+  drawSeg('ev-owner',  owners().map(o => ({id:o.id, label:o.name})),        () => evOwner,  v => { evOwner = v; });
+  drawSeg('ev-type',   TYPES.map(t => ({id:t.id, label:t.icon + t.label})), () => evType,   v => { evType = v; });
+  drawSeg('ev-repeat', REPEATS.map(r => ({id:r.id, label:r.label})),        () => evRepeat, v => { evRepeat = v; syncUntil(); });
+  syncUntil();
+
+  // 中身が入っている項目があるときだけ、詳細欄を開いた状態にする
+  setMore(!!(ev && (ev.place || ev.cost || ev.repeat || ev.memo)));
+  formDirty = false;
+  show('m-event');
+}
+
+/* 詳細欄（場所・金額・繰り返し・メモ）の開閉 */
+function setMore(open){
+  document.getElementById('ev-more').hidden = !open;
+  document.getElementById('ev-more-toggle').textContent =
+    open ? '− 詳しい項目を閉じる' : '＋ 場所・金額・繰り返し・メモ';
+}
+document.getElementById('ev-more-toggle').onclick =
+  () => setMore(document.getElementById('ev-more').hidden);
+function syncUntil(){ document.getElementById('ev-until-wrap').hidden = !evRepeat; }
+
+/* 繰り返し予定の注意書き。休みにした回があれば、まとめて戻せるようにする */
+function drawRepeatNote(ev){
+  const note = document.getElementById('ev-repeat-note');
+  note.textContent = '';
+  note.hidden = !(ev && ev.repeat);
+  if(note.hidden) return;
+  note.append('この予定は繰り返しです。ここでの変更・削除は');
+  const s = document.createElement('strong'); s.textContent = 'すべての回';
+  note.append(s, 'に反映されます。');
+
+  const n = (ev.skips || []).length;
+  if(!n) return;
+  note.append(` いま ${n}回を休みにしています。`);
+  const b = document.createElement('button');
+  b.textContent = '休みを全部戻す';
+  b.style.cssText = 'display:block;margin-top:8px;border:1px solid currentColor;background:none;border-radius:8px;padding:6px 10px;font-size:12px';
+  b.onclick = () => {
+    if(!confirm(`休みにした${n}回をすべて元に戻しますか？`)) return;
+    ev.skips = [];
+    save(); drawRepeatNote(ev); render();
+  };
+  note.appendChild(b);
+}
+
+/* 選択式ボタン群を描く共通処理 */
+function drawSeg(elId, items, get, set){
+  const box = document.getElementById(elId);
+  box.textContent = '';
+  items.forEach(it => {
+    const b = document.createElement('button');
+    b.textContent = it.label;
+    if(get() === it.id){ b.classList.add('on'); if(it.id === 'me') b.classList.add('me'); }
+    b.onclick = () => { set(it.id); drawSeg(elId, items, get, set); };
+    box.appendChild(b);
+  });
+}
+
+document.getElementById('ev-save').onclick = () => {
+  const title = document.getElementById('ev-title').value.trim();
+  const date  = document.getElementById('ev-date').value;
+  const until = document.getElementById('ev-until').value;
+  if(!title){ alert('タイトルを入れてください。'); return; }
+  if(!date){  alert('日付を選んでください。'); return; }
+  if(evRepeat && until && until < date){
+    alert('「いつまで」が開始日より前になっています。'); return;
+  }
+  const data = {
+    date, title, type:evType, ownerId:evOwner, repeat:evRepeat,
+    until: evRepeat ? until : '',
+    time: document.getElementById('ev-time').value,
+    memo: document.getElementById('ev-memo').value.trim(),
+    place: document.getElementById('ev-place').value.trim(),
+    cost: Math.max(0, Math.round(Number(document.getElementById('ev-cost').value) || 0))
+  };
+  if(editingId){
+    const i = state.events.findIndex(e => e.id === editingId);
+    state.events[i] = {...state.events[i], ...data};
+  }else{
+    state.events.push({id:uid(), skips:[], done:false, ...data});
+  }
+  selected = date;
+  view = fromYmd(date); view.setDate(1);
+  state.hidden = state.hidden.filter(x => x !== evOwner); // 隠している相手の予定を足したら表示に戻す
+  state.lastOwner = evOwner; state.lastType = evType;     // 次に足すときの初期値にする
+  save(); hide('m-event'); render();
+};
+document.getElementById('ev-del').onclick = () => {
+  const e = state.events.find(x => x.id === editingId);
+  const msg = (e && e.repeat) ? 'この繰り返し予定を、すべての回まとめて削除しますか？' : 'この予定を削除しますか？';
+  if(!confirm(msg)) return;
+  state.events = state.events.filter(x => x.id !== editingId);
+  save(); hide('m-event'); render();
+};
+document.getElementById('ev-cancel').onclick = () => hide('m-event');
+document.getElementById('addhere').onclick  = () => openEvent(null);
+document.getElementById('addhere2').onclick = () => { selected = TODAY; openEvent(null); };
+document.getElementById('addhere3').onclick = () => { selected = TODAY; openEvent(null); };
+
+/* =========================================================
+   推しの管理
+   ========================================================= */
+let openPalette = null;   // 色パレットを開いている推しのid
+function openOshi(){ openPalette = null; drawOshi(); show('m-oshi'); }
+
+function drawOshi(){
+  const box = document.getElementById('oshi-list');
+  box.textContent = '';
+  if(!state.oshis.length){
+    const p = document.createElement('p');
+    p.className = 'empty'; p.textContent = 'まだ登録がありません。';
+    box.appendChild(p);
+  }
+  state.oshis.forEach(o => {
+    const row = document.createElement('div');
+    row.className = 'oshi-row';
+    // 色見本は押すとパレットが開く。全員分を出しっぱなしにすると画面が縦に伸びすぎるため。
+    const sw = document.createElement('button');
+    sw.className = 'swatch'; sw.style.background = o.color;
+    sw.style.border = 'none'; sw.style.padding = '0';
+    sw.setAttribute('aria-label', `${o.name} の色を変える`);
+    row.appendChild(sw);
+
+    const input = document.createElement('input');
+    input.type = 'text'; input.value = o.name;
+    input.setAttribute('aria-label', '推しの名前');
+    input.oninput = () => { o.name = input.value; save(); renderFilters(); render(); };
+    row.appendChild(input);
+
+    const del = document.createElement('button');
+    del.className = 'del'; del.textContent = '✕';
+    del.setAttribute('aria-label', `${o.name} を削除`);
+    del.onclick = () => {
+      const n = state.events.filter(e => e.ownerId === o.id).length;
+      const msg = n ? `「${o.name}」を削除すると、その予定${n}件も一緒に消えます。よろしいですか？`
+                    : `「${o.name}」を削除しますか？`;
+      if(!confirm(msg)) return;
+      state.oshis  = state.oshis.filter(x => x.id !== o.id);
+      state.events = state.events.filter(e => e.ownerId !== o.id);
+      state.hidden = state.hidden.filter(x => x !== o.id);
+      save(); drawOshi(); render();
+    };
+    row.appendChild(del);
+    box.appendChild(row);
+
+    const colors = document.createElement('div');
+    colors.className = 'colors';
+    colors.hidden = (openPalette !== o.id);
+    PALETTE.forEach(c => {
+      const b = document.createElement('button');
+      b.style.background = c;
+      b.setAttribute('aria-label', '色を変える');
+      if(c === o.color) b.classList.add('on');
+      b.onclick = () => { o.color = c; openPalette = null; save(); drawOshi(); render(); };
+      colors.appendChild(b);
+    });
+    sw.onclick = () => { openPalette = (openPalette === o.id) ? null : o.id; drawOshi(); };
+    box.appendChild(colors);
+  });
+}
+
+document.getElementById('oshi-add').onclick = () => {
+  const used = state.oshis.map(o => o.color);
+  const color = PALETTE.find(c => !used.includes(c)) || PALETTE[state.oshis.length % PALETTE.length];
+  state.oshis.push({id:uid(), name:`推し${state.oshis.length + 1}`, color});
+  save(); drawOshi(); render();
+};
+document.getElementById('oshi-close').onclick = () => hide('m-oshi');
+document.getElementById('btn-oshi').onclick = openOshi;
+
+/* =========================================================
+   貼り付けて読み取り
+   ---------------------------------------------------------
+   ⚠️ 外部サイトを自動で見に行く機能ではない。
+   1枚のWebページは、ブラウザの制約（CORS）で他サイトを直接読めないため、
+   ここでは「人が貼った文章から日付を拾う」までを担当する。
+   ========================================================= */
+let psOwner = 'me';
+let candidates = [];
+
+document.getElementById('btn-paste').onclick = () => {
+  psOwner = state.oshis[0] ? state.oshis[0].id : 'me';
+  document.getElementById('ps-text').value = '';
+  document.getElementById('ps-result').textContent = '';
+  drawSeg('ps-owner', owners().map(o => ({id:o.id, label:o.name})), () => psOwner, v => { psOwner = v; });
+  show('m-paste');
+};
+document.getElementById('ps-cancel').onclick = () => hide('m-paste');
+function runRead(){
+  candidates = parseText(document.getElementById('ps-text').value);
+  drawCandidates();
+}
+document.getElementById('ps-read').onclick = runRead;
+// 貼った時点で読み取る。わざわざボタンを押させる必要がない。
+document.getElementById('ps-text').addEventListener('paste', () => setTimeout(runRead, 0));
+
+/* 1行から日付を取り出す。見つからなければ null */
+function findDate(line){
+  // 2026年8月15日 / 2026-08-15 / 2026/8/15 / 2026.8.15
+  let m = line.match(/(20\d{2})\s*[年\-\/\.]\s*(\d{1,2})\s*[月\-\/\.]\s*(\d{1,2})\s*日?/);
+  if(m) return {y:+m[1], mo:+m[2], d:+m[3], matched:m[0], hasYear:true};
+  // 8月15日 / 8/15 / 8.15
+  m = line.match(/(?:^|[^\d\-\/\.])(\d{1,2})\s*[月\/\.]\s*(\d{1,2})\s*日?/);
+  if(m) return {y:new Date().getFullYear(), mo:+m[1], d:+m[2], matched:m[0], hasYear:false};
+  return null;
+}
+
+/* 1行から時刻を取り出す。「17:30開場 18:00開演」は開演のほうを採る */
+function findTime(line){
+  const m = line.match(/開演\D{0,3}(\d{1,2})\s*[:時]\s*(\d{2})?/)
+         || line.match(/(\d{1,2})\s*[:時]\s*(\d{2})?\s*開演/)
+         || line.match(/(\d{1,2})\s*[:時]\s*(\d{2})?/);
+  if(!m) return '';
+  const hh = +m[1];
+  return hh <= 23 ? `${pad(hh)}:${m[2] || '00'}` : '';
+}
+
+/* 日付だけの行のために、近くの行から見出しを借りる。
+   告知文は「日付 → 会場・演目」の順が多いので後ろを先に見る。
+   別の日付を持つ行に当たったら、そこは別の予定なので借りない。 */
+function borrowTitle(lines, idx){
+  for(const step of [1, -1]){
+    for(let k = idx + step; k >= 0 && k < lines.length && Math.abs(k - idx) <= 3; k += step){
+      const s = lines[k].trim();
+      if(s.length < 2) continue;
+      if(findDate(s)) break;
+      return s;
+    }
+  }
+  return '';
+}
+
+/* 文章から日付らしい箇所を拾う */
+function parseText(text){
+  const out = [];
+  const lines = text.split(/\r?\n/);
+
+  lines.forEach((line, idx) => {
+    const raw = line.trim();
+    if(!raw) return;
+
+    const f = findDate(raw);
+    if(!f) return;
+    if(f.mo < 1 || f.mo > 12 || f.d < 1 || f.d > 31) return;
+
+    let date = new Date(f.y, f.mo-1, f.d);
+    if(date.getMonth() !== f.mo-1) return;             // 2/30 のような無効日を弾く
+    // 年の指定がないものが半年以上前になるなら、来年の予定とみなす
+    if(!f.hasYear && daysBetween(TODAY, ymd(date)) < -180){
+      date = new Date(f.y+1, f.mo-1, f.d);
+    }
+
+    // 行から日付・時刻・曜日カッコを取り除いた残りをタイトルにする
+    let title = raw
+      .replace(f.matched, ' ')
+      .replace(/[（(][日月火水木金土][)）]/g, ' ')
+      .replace(/\d{1,2}\s*[:時]\s*\d{0,2}分?/g, ' ')
+      .replace(/[〜～\-–—]/g, ' ')
+      .replace(/(開場|開演|発売|配信|開始|スタート)/g, ' ')
+      .replace(/\s+/g, ' ').trim();
+    if(title.length < 2) title = borrowTitle(lines, idx);
+    if(!title) title = '（タイトル未設定）';
+
+    // 種類は、確定したタイトルも含めて推測する
+    // （日付だけの行は近くの行からタイトルを借りているので、raw だけでは判断できない）
+    out.push({date:ymd(date), time:findTime(raw), title:title.slice(0,60),
+              type:guessType(title + ' ' + raw), on:true});
+  });
+
+  // 同じ日・同じタイトルの重複を落とす
+  const seen = new Set();
+  return out.filter(c => {
+    const k = c.date + '|' + c.title;
+    if(seen.has(k)) return false;
+    seen.add(k); return true;
+  });
+}
+
+function guessType(s){
+  // 締切を最優先で見る。「ツアー先行申込 締切」はライブではなく、逃せない締切として扱いたい。
+  if(/(締切|締め切り|申込期限|受付終了|当落|抽選結果|入金|支払期限|期限)/.test(s)) return 'deadline';
+  // 配信を先に見る。「インスタライブ」「ライブ配信」が現地ライブと誤判定されるのを防ぐため。
+  if(/(配信|生放送|インスタライブ|スペース|YouTube|SHOWROOM|ツイキャス)/i.test(s)) return 'stream';
+  if(/(ライブ|公演|LIVE|ツアー|フェス|コンサート|開演|開場|イベント|ファンミ|握手会)/i.test(s)) return 'live';
+  if(/(発売|リリース|発表|販売)/.test(s)) return 'release';
+  if(/(誕生日|生誕|バースデー)/.test(s)) return 'bday';
+  return 'other';
+}
+
+function drawCandidates(){
+  const box = document.getElementById('ps-result');
+  box.textContent = '';
+  if(!candidates.length){
+    const p = document.createElement('p');
+    p.className = 'hint'; p.style.marginTop = '14px';
+    p.textContent = '日付らしいところが見つかりませんでした。'
+      + '「8/15」「2026年9月3日」のような書き方が含まれているか確認してください。';
+    box.appendChild(p);
+    return;
+  }
+  const h = document.createElement('h3');
+  h.style.marginTop = '20px';
+  h.textContent = `読み取り結果（${candidates.length}件）`;
+  const note = document.createElement('p');
+  note.className = 'hint'; note.style.margin = '0 0 6px';
+  note.textContent = '中身は必ず目で確かめてください。読み間違いはここで直せます。';
+  box.append(h, note);
+
+  candidates.forEach(c => {
+    const row = document.createElement('div');
+    row.className = 'cand';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox'; cb.checked = c.on;
+    cb.setAttribute('aria-label', 'この予定を追加する');
+    cb.onchange = () => { c.on = cb.checked; };
+    row.appendChild(cb);
+
+    const body = document.createElement('div');
+    body.className = 'c-body';
+    const d = fromYmd(c.date);
+    const dt = document.createElement('div');
+    dt.className = 'c-date';
+    dt.textContent = `${d.getFullYear()}年${d.getMonth()+1}月${d.getDate()}日（${DOW[d.getDay()]}）`
+      + `${c.time ? ' ' + c.time : ''}　${typeOf(c.type).icon}${typeOf(c.type).label}`;
+    const inp = document.createElement('input');
+    inp.type = 'text'; inp.value = c.title;
+    inp.setAttribute('aria-label', '予定のタイトル');
+    inp.oninput = () => { c.title = inp.value; };
+    body.append(dt, inp);
+    row.appendChild(body);
+    box.appendChild(row);
+  });
+
+  const act = document.createElement('div');
+  act.className = 'actions';
+  const add = document.createElement('button');
+  add.className = 'primary';
+  add.textContent = 'チェックした予定を追加';
+  add.onclick = () => {
+    const picked = candidates.filter(c => c.on && c.title.trim());
+    if(!picked.length){ alert('追加するものが選ばれていません。'); return; }
+    picked.forEach(c => state.events.push({
+      id:uid(), date:c.date, time:c.time, title:c.title.trim(),
+      type:c.type, memo:'', place:'', cost:0, ownerId:psOwner, repeat:'', until:'', skips:[]
+    }));
+    state.hidden = state.hidden.filter(x => x !== psOwner);
+    const first = picked.map(c => c.date).sort()[0];
+    selected = first; view = fromYmd(first); view.setDate(1);
+    save(); hide('m-paste'); render();
+    alert(`${picked.length}件を追加しました。`);
+  };
+  act.appendChild(add);
+  box.appendChild(act);
+}
+
+/* =========================================================
+   設定（書き出し・読み込み・全消去）
+   ========================================================= */
+document.getElementById('btn-set').onclick = () => {
+  document.getElementById('set-ver').textContent = 'v' + APP_VERSION;
+  document.getElementById('set-count').textContent =
+    `推し${state.oshis.length}人・予定${state.events.length}件`;
+  show('m-set');
+};
+document.getElementById('set-close').onclick = () => hide('m-set');
+
+document.getElementById('set-export').onclick = () => {
+  const data = {app:'oshi-cal', version:APP_VERSION, exportedAt:new Date().toISOString(), ...state};
+  download(`推し活カレンダー-${TODAY}.json`, JSON.stringify(data, null, 2), 'application/json');
+};
+
+/* ---- .ics（カレンダーアプリ向け）の書き出し ----
+   時刻はタイムゾーンを付けない「浮動時刻」で書く。
+   取り込んだ端末のローカル時刻として読まれるので、日本国内で使うぶんには
+   VTIMEZONE を持たせるより単純で確実。 */
+function icsEscape(s){
+  return String(s).replace(/\\/g,'\\\\').replace(/;/g,'\\;').replace(/,/g,'\\,').replace(/\r?\n/g,'\\n');
+}
+/* RFC5545 は1行75オクテットまで。日本語はすぐ超えるのでバイト数で折る */
+function icsFold(line){
+  const bytes = new TextEncoder().encode(line);
+  if(bytes.length <= 73) return line;
+  const out = [];
+  let cur = '', curBytes = 0;
+  for(const ch of line){
+    const n = new TextEncoder().encode(ch).length;
+    if(curBytes + n > (out.length ? 72 : 73)){ out.push(cur); cur = ''; curBytes = 0; }
+    cur += ch; curBytes += n;
+  }
+  if(cur) out.push(cur);
+  return out.join('\r\n ');    // 継続行は先頭を空白にする
+}
+/* いつ鳴らすか。終日の予定は 00:00 開始として扱われるので、
+   「開始からPT9H」＝当日の朝9時、「-PT15H」＝前日の朝9時になる。 */
+function alarmsFor(e){
+  const a = [];
+  if(e.type === 'deadline') a.push(e.time ? '-P1D' : '-PT15H');   // 締切は前日にも一度
+  a.push(e.time ? '-PT1H' : 'PT9H');                              // 1時間前 / 当日の朝
+  return a;
+}
+
+function buildICS(){
+  const stamp = new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
+  const L = ['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//oshi-cal//JP','CALSCALE:GREGORIAN','METHOD:PUBLISH'];
+  const dt = s => s.replace(/-/g,'');
+  state.events.filter(e => isShown(e.ownerId)).forEach(e => {
+    const o = ownerOf(e.ownerId), t = typeOf(e.type);
+    L.push('BEGIN:VEVENT', `UID:${e.id}@oshi-cal`, `DTSTAMP:${stamp}`);
+    if(e.time){
+      const hhmm = e.time.replace(':','');
+      const end = new Date(fromYmd(e.date));
+      end.setHours(+e.time.slice(0,2) + 1, +e.time.slice(3,5));
+      L.push(`DTSTART:${dt(e.date)}T${hhmm}00`,
+             `DTEND:${dt(ymd(end))}T${pad(end.getHours())}${pad(end.getMinutes())}00`);
+    }else{
+      L.push(`DTSTART;VALUE=DATE:${dt(e.date)}`, `DTEND;VALUE=DATE:${dt(addDays(e.date,1))}`);
+    }
+    if(e.repeat){
+      const freq = {daily:'DAILY', weekly:'WEEKLY', monthly:'MONTHLY'}[e.repeat];
+      L.push(`RRULE:FREQ=${freq}` + (e.until ? `;UNTIL=${dt(e.until)}T235959` : ''));
+      (e.skips || []).forEach(s => {
+        L.push(e.time ? `EXDATE:${dt(s)}T${e.time.replace(':','')}00`
+                      : `EXDATE;VALUE=DATE:${dt(s)}`);
+      });
+    }
+    L.push(icsFold(`SUMMARY:${icsEscape(`${t.icon}${e.title}（${o.name}）`)}`));
+    // アラームを入れておく。このアプリ自体は閉じている間に通知できないので、
+    // 取り込み先のカレンダーアプリ（OS）に鳴らしてもらうのが唯一の実用的な手段。
+    alarmsFor(e).forEach(trigger => {
+      L.push('BEGIN:VALARM', `TRIGGER:${trigger}`, 'ACTION:DISPLAY',
+             icsFold(`DESCRIPTION:${icsEscape(e.title)}`), 'END:VALARM');
+    });
+    if(e.place) L.push(icsFold(`LOCATION:${icsEscape(e.place)}`));
+    const desc = [e.memo, e.cost ? yen(e.cost) : ''].filter(Boolean).join(' / ');
+    if(desc) L.push(icsFold(`DESCRIPTION:${icsEscape(desc)}`));
+    L.push('END:VEVENT');
+  });
+  L.push('END:VCALENDAR');
+  return L.join('\r\n');
+}
+function download(name, text, mime){
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], {type:mime}));
+  a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+document.getElementById('set-ics').onclick = () => {
+  const n = state.events.filter(e => isShown(e.ownerId)).length;
+  if(!n){ alert('書き出せる予定がありません。'); return; }
+  download(`推し活カレンダー-${TODAY}.ics`, buildICS(), 'text/calendar');
+};
+
+document.getElementById('set-import').onclick = () => document.getElementById('set-file').click();
+document.getElementById('set-file').onchange = ev => {
+  const file = ev.target.files && ev.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    let data;
+    try{ data = JSON.parse(String(reader.result)); }
+    catch(e){ alert('このファイルは読み込めませんでした。書き出したJSONファイルを選んでください。'); return; }
+    const next = normalize(data);
+    if(!next.oshis.length && !next.events.length){
+      alert('中身が空でした。別のファイルを選んでください。'); return;
+    }
+    if(!confirm(`推し${next.oshis.length}人・予定${next.events.length}件を読み込みます。\n`
+              + `いまの内容（推し${state.oshis.length}人・予定${state.events.length}件）は置き換わります。よろしいですか？`)) return;
+    state = next;
+    save(); hide('m-set'); render();
+    alert('読み込みました。');
+  };
+  reader.onerror = () => alert('ファイルを読めませんでした。');
+  reader.readAsText(file);
+  ev.target.value = '';   // 同じファイルをもう一度選べるようにする
+};
+
+document.getElementById('set-reset').onclick = () => {
+  if(!confirm('すべての推しと予定を削除します。元に戻せません。よろしいですか？')) return;
+  state = {oshis:[], events:[], hidden:[], showRepeats:false, isSample:false};
+  save(); hide('m-set'); render();
+};
+
+/* =========================================================
+   モーダル共通・タブ・月移動
+   ========================================================= */
+function show(id){ document.getElementById(id).hidden = false; }
+function hide(id){ document.getElementById(id).hidden = true; if(id === 'm-event') formDirty = false; }
+
+/* 背景タップやEscで閉じるとき、書きかけの内容を黙って捨てない */
+function tryClose(m){
+  if(m.id === 'm-event' && formDirty
+     && !confirm('入力した内容は保存されません。閉じてよろしいですか？')) return;
+  if(m.id === 'm-paste' && document.getElementById('ps-text').value.trim()
+     && !confirm('貼り付けた内容は残りません。閉じてよろしいですか？')) return;
+  m.hidden = true;
+  if(m.id === 'm-event') formDirty = false;
+}
+document.querySelectorAll('.mask').forEach(m => {
+  m.addEventListener('click', e => { if(e.target === m) tryClose(m); });
+});
+document.addEventListener('keydown', e => {
+  if(e.key !== 'Escape') return;
+  document.querySelectorAll('.mask').forEach(m => { if(!m.hidden) tryClose(m); });
+});
+
+document.getElementById('sn-clear').onclick = () => {
+  if(!confirm('サンプルの推しと予定をすべて消して、まっさらな状態から始めますか？')) return;
+  state = {oshis:[], events:[], hidden:[], showRepeats:false, isSample:false};
+  save(); render();
+  openOshi();     // すぐ推しを登録できるようにする
+};
+document.getElementById('sn-keep').onclick = () => { state.isSample = false; save(); render(); };
+
+document.getElementById('tab-home').onclick = () => { mode = 'home'; render(); };
+document.getElementById('tab-cal').onclick  = () => { mode = 'cal';  render(); };
+document.getElementById('tab-list').onclick = () => { mode = 'list'; render(); };
+document.getElementById('search').oninput   = () => renderUpcoming();
+
+/* 開きっぱなしで日付が変わることがある。戻ってきたときに「今日」を取り直す。 */
+function refreshToday(){
+  const now = ymd(new Date());
+  if(now === TODAY) return;
+  const wasToday = (selected === TODAY);
+  TODAY = now;
+  if(wasToday){ selected = TODAY; view = fromYmd(TODAY); view.setDate(1); }
+  render();
+}
+document.addEventListener('visibilitychange', () => { if(!document.hidden) refreshToday(); });
+window.addEventListener('focus', refreshToday);
+
+/* 別のタブで編集されたら取り込む。放っておくと、あとで保存したほうが相手を消してしまう。 */
+window.addEventListener('storage', e => {
+  if(e.key !== STORE_KEY || !e.newValue) return;
+  try{ state = normalize(JSON.parse(e.newValue)); render(); }catch(err){ /* 壊れた値は無視 */ }
+});
+const goMonth = n => { view.setMonth(view.getMonth() + n); render(); };
+document.getElementById('prev').onclick = () => goMonth(-1);
+document.getElementById('next').onclick = () => goMonth(1);
+
+/* カレンダーを横に払って月を送る。矢印を狙わせなくて済む。 */
+(() => {
+  const cal = document.querySelector('.cal');
+  let x0 = 0, y0 = 0;
+  cal.addEventListener('touchstart', e => {
+    x0 = e.changedTouches[0].clientX; y0 = e.changedTouches[0].clientY;
+  }, {passive:true});
+  cal.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - x0;
+    const dy = e.changedTouches[0].clientY - y0;
+    // 縦スクロールと取り違えないよう、横の動きが縦より大きいときだけ効かせる
+    if(Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) goMonth(dx < 0 ? 1 : -1);
+  }, {passive:true});
+})();
+document.getElementById('gotoday').onclick = () => {
+  selected = TODAY; view = fromYmd(TODAY); view.setDate(1); render();
+};
+
+render();
+
+/* オフラインでも開けるようにする。file:// で開いた場合は登録できないので黙って諦める。 */
+if('serviceWorker' in navigator && location.protocol.startsWith('http')){
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,5 @@
+# 改行コードは LF で統一する。
+# Windows の既定では CRLF に変換されるが、そうなると deploy.sh が
+# 別の環境で「bad interpreter」になって動かなくなる。
+* text=auto eol=lf
+*.png binary

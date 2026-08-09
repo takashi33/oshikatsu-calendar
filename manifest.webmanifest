@@ -1,0 +1,18 @@
+{
+  "name": "推し活カレンダー",
+  "short_name": "推し活カレンダー",
+  "description": "自分の予定と推しのスケジュールが同じカレンダーの上に並ぶ、推し活のためのカレンダーです。",
+  "lang": "ja",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fdf7f9",
+  "theme_color": "#ff7aa8",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
