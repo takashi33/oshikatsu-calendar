@@ -122,6 +122,10 @@ header{
   content:'';position:absolute;right:-40px;top:-40px;width:150px;height:150px;
   border-radius:50%;background:rgba(255,255,255,.13);
 }
+.hero-face{
+  position:absolute;right:16px;top:16px;z-index:1;line-height:0;
+  border:2px solid rgba(255,255,255,.75);border-radius:50%;
+}
 .hero-label{font-size:11px;opacity:.9;letter-spacing:.06em}
 .hero-title{font-size:20px;font-weight:700;line-height:1.35;margin:4px 0 2px;word-break:break-word}
 .hero-sub{font-size:12px;opacity:.92}
@@ -233,7 +237,7 @@ header{
 .item{display:flex;gap:10px;padding:9px 0;border-top:1px solid var(--line)}
 .item .stripe{width:4px;border-radius:2px;flex:0 0 4px}
 .item .body{flex:1;min-width:0}
-.item .who{font-size:11px;color:var(--sub)}
+.item .who{font-size:11px;color:var(--sub);display:flex;align-items:center;gap:2px}
 .item .name{font-weight:600;word-break:break-word}
 .item .meta{font-size:12px;color:var(--sub);word-break:break-word}
 /* 行の右端に縦積みで置く操作ボタン。予定の行と締切の行の両方で使う */
@@ -314,6 +318,28 @@ textarea{min-height:104px;resize:vertical}
 .note{
   font-size:12px;background:var(--bg);border:1px solid var(--line);
   border-radius:10px;padding:9px 11px;margin-top:12px;color:var(--sub);
+}
+
+/* 推しのアイコン（絵文字・写真・色の丸のどれか） */
+.ava{
+  display:inline-grid;place-items:center;border-radius:50%;overflow:hidden;
+  flex:0 0 auto;line-height:1;user-select:none;
+}
+.ava img{width:100%;height:100%;object-fit:cover;display:block}
+
+/* アイコンを選ぶ欄 */
+.icon-pick{margin-top:8px}
+.icon-pick .row-label{font-size:11px;color:var(--sub);margin:10px 0 5px}
+.emoji-grid{display:grid;grid-template-columns:repeat(8,1fr);gap:5px}
+.emoji-grid button{
+  border:1px solid var(--line);background:var(--bg);border-radius:9px;
+  padding:0;height:36px;font-size:18px;line-height:1;
+}
+.emoji-grid button.on{border-color:var(--accent);background:rgba(255,122,168,.15)}
+.icon-pick .pick-acts{display:flex;gap:6px;margin-top:8px}
+.icon-pick .pick-acts button{
+  flex:1;border:1px solid var(--line);background:var(--bg);border-radius:10px;
+  padding:10px 6px;font-size:12.5px;font-weight:600;
 }
 
 /* 推し管理 */
@@ -411,6 +437,7 @@ textarea{min-height:104px;resize:vertical}
     </div>
 
     <div class="hero" id="hero" hidden>
+      <span class="hero-face" id="hero-face" hidden></span>
       <div class="hero-label">つぎの推しの予定</div>
       <div class="hero-title" id="hero-title"></div>
       <div class="hero-sub" id="hero-sub"></div>
@@ -536,12 +563,19 @@ textarea{min-height:104px;resize:vertical}
 <div class="mask" id="m-oshi" hidden>
   <div class="sheet">
     <h3>推しを管理</h3>
+    <p class="hint" style="margin:0 0 6px">
+      丸いアイコンを押すと、<strong>写真や絵文字</strong>に変えられます。名前はその場で書き換えられます。
+    </p>
+    <input type="file" id="oshi-file" accept="image/*" hidden>
     <div id="oshi-list"></div>
     <div class="actions" style="margin-top:14px">
       <button id="oshi-add">＋ 推しを追加</button>
       <button class="primary" id="oshi-close">閉じる</button>
     </div>
-    <p class="hint">名前を書き換えるとその場で反映されます。色をタップすると変わります。</p>
+    <p class="hint">
+      選んだ写真は<strong>このスマホの中だけ</strong>に、小さくして持ちます。どこにも送られません。<br>
+      色は、カレンダーに出る帯の色です。写真や絵文字を選んでも、色は色で残ります。
+    </p>
   </div>
 </div>
 
@@ -586,7 +620,9 @@ textarea{min-height:104px;resize:vertical}
     </dl>
 
     <h4>まず、推しを登録します</h4>
-    <p>下の「👤 推しを管理」を押して、名前を入れます。<strong>何人でも登録できます。</strong>色の丸を押すと色を変えられます。この色が、カレンダーの中でその推しの目印になります。</p>
+    <p>下の「👤 推しを管理」を押して、名前を入れます。<strong>何人でも登録できます。</strong></p>
+    <p>名前の左にある<strong>丸いアイコンを押すと、推しの写真や絵文字に変えられます。</strong>誰の予定かがひと目で分かるようになります。写真はこのスマホの中だけに、小さくして持ちます。どこにも送られません。</p>
+    <p>色も選べます。こちらは<strong>カレンダーに出る帯の色</strong>になります。</p>
 
     <h4>予定を入れる（2つのやり方）</h4>
     <dl>
@@ -692,7 +728,7 @@ textarea{min-height:104px;resize:vertical}
    ・外部サイトからの自動取得は行わない（理由は knowledge/external-data-fetch.md）
    ========================================================= */
 
-const APP_VERSION = '3.1.0';
+const APP_VERSION = '3.2.0';
 const STORE_KEY = 'oshi-cal-v1';
 const PALETTE = ['#ff7aa8','#7ec8e3','#ffc25c','#9ad6a3','#c39aeb','#ff9f7a','#6fd0c4','#e88fb8'];
 const TYPES = [
@@ -712,6 +748,9 @@ const REPEATS = [
   {id:'monthly', label:'毎月'}
 ];
 const DOW = ['日','月','火','水','木','金','土'];
+const EMOJI = ['💖','💜','💙','💚','💛','🧡','🤍','🖤','⭐','🌟','✨','🌸',
+               '🌷','🎀','👑','🐰','🐱','🐶','🐻','🦊','🐧','🍀','🔥','🌙'];
+const ICON_PX = 160;   // 写真はこの大きさの正方形に縮めてから持つ
 const LIST_DAYS = 400;   // 「これから」で先読みする日数
 const LIST_MAX  = 80;    // 「これから」に並べる最大件数
 
@@ -796,6 +835,13 @@ function save(){
   try{
     localStorage.setItem(STORE_KEY, JSON.stringify(state));
   }catch(e){
+    // 写真を何枚も入れると保存の上限に当たる。原因によって案内を変える。
+    if(e && (e.name === 'QuotaExceededError' || e.code === 22)){
+      alert('保存できる量をこえました。\n\n'
+          + '推しの写真が多いか、大きすぎるのかもしれません。\n'
+          + 'アイコンをいくつか絵文字に変えるか、消してみてください。');
+      return;
+    }
     storageOK = false;
     const w = document.getElementById('storewarn');
     if(w) w.hidden = false;
@@ -807,7 +853,9 @@ function normalize(o){
   const d = (o && typeof o === 'object') ? o : {};
   return {
     oshis:  Array.isArray(d.oshis)  ? d.oshis.filter(x => x && x.id).map(x => ({
-              id:String(x.id), name:String(x.name || '推し'), color:String(x.color || PALETTE[0])
+              id:String(x.id), name:String(x.name || '推し'), color:String(x.color || PALETTE[0]),
+              // 絵文字1文字か、写真（data: で始まる文字列）。空なら色の丸だけ
+              icon:String(x.icon || '')
             })) : [],
     events: Array.isArray(d.events) ? d.events.filter(x => x && x.date && x.title).map(x => ({
               id:String(x.id || uid()), date:String(x.date), time:String(x.time || ''),
@@ -868,6 +916,26 @@ function getVar(name){
   try{
     return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || '#7c8ba1';
   }catch(e){ return '#7c8ba1'; }
+}
+
+/* 推しの見た目をひとつ作って返す。写真・絵文字・色の丸のどれかになる。
+   同じ見た目をあちこちで使うので、作る場所を1か所にまとめてある。 */
+function avatar(o, px){
+  const el = document.createElement('span');
+  el.className = 'ava';
+  el.style.width = el.style.height = px + 'px';
+  if(o.icon && o.icon.startsWith('data:')){
+    const img = document.createElement('img');
+    img.src = o.icon; img.alt = '';
+    el.appendChild(img);
+  }else if(o.icon){
+    el.style.background = o.color;
+    el.style.fontSize = Math.round(px * 0.58) + 'px';
+    el.textContent = o.icon;
+  }else{
+    el.style.background = o.color;
+  }
+  return el;
 }
 
 /* その予定が、指定日に発生するか（繰り返しを展開する） */
@@ -991,6 +1059,10 @@ function renderHero(){
   const {e, date} = found;
   const o = ownerOf(e.ownerId), n = daysBetween(TODAY, date), d = fromYmd(date);
   hero.style.background = `linear-gradient(135deg, ${o.color} 0%, ${shade(o.color, -28)} 100%)`;
+  const face = document.getElementById('hero-face');
+  face.textContent = '';
+  if(o.icon){ face.appendChild(avatar(o, 46)); face.hidden = false; }
+  else { face.hidden = true; }
   document.getElementById('hero-title').textContent = `${typeOf(e.type).icon} ${e.title}`;
   document.getElementById('hero-sub').textContent =
     `${o.name}・${d.getMonth()+1}/${d.getDate()}（${DOW[d.getDay()]}）`
@@ -1177,8 +1249,7 @@ function renderReview(){
     const o = ownerOf(id);
     const r = document.createElement('div');
     r.className = 'mrow';
-    const sw = document.createElement('span');
-    sw.className = 'swatch'; sw.style.background = o.color;
+    const sw = avatar(o, o.icon ? 20 : 9);
     const amt = document.createElement('span');
     amt.className = 'amt'; amt.textContent = `${n}回`;
     r.append(sw, o.name, amt);
@@ -1205,9 +1276,7 @@ function renderFilters(){
     const b = document.createElement('button');
     b.className = 'chip' + (isShown(o.id) ? '' : ' off');
     b.setAttribute('aria-pressed', String(isShown(o.id)));
-    const sw = document.createElement('span');
-    sw.className = 'swatch'; sw.style.background = o.color;
-    b.appendChild(sw);
+    b.appendChild(avatar(o, o.icon ? 20 : 9));
     b.append(o.name);
     b.onclick = () => {
       state.hidden = isShown(o.id) ? [...state.hidden, o.id] : state.hidden.filter(x => x !== o.id);
@@ -1373,7 +1442,8 @@ function itemRow(e, date){
   body.className = 'body';
   const who = document.createElement('div');
   who.className = 'who';
-  who.textContent = `${o.name}・${t.icon}${t.label}`;
+  if(o.icon){ who.appendChild(avatar(o, 15)); who.append(' '); }
+  who.append(`${o.name}・${t.icon}${t.label}`);
   const name = document.createElement('div');
   name.className = 'name'; name.textContent = e.title;
   const meta = document.createElement('div');
@@ -1599,11 +1669,11 @@ function drawOshi(){
   state.oshis.forEach(o => {
     const row = document.createElement('div');
     row.className = 'oshi-row';
-    // 色見本は押すとパレットが開く。全員分を出しっぱなしにすると画面が縦に伸びすぎるため。
+    // アイコンは押すと選択欄が開く。全員分を出しっぱなしにすると画面が縦に伸びすぎるため。
     const sw = document.createElement('button');
-    sw.className = 'swatch'; sw.style.background = o.color;
-    sw.style.border = 'none'; sw.style.padding = '0';
-    sw.setAttribute('aria-label', `${o.name} の色を変える`);
+    sw.style.cssText = 'border:none;padding:0;background:none;flex:0 0 auto;line-height:0';
+    sw.appendChild(avatar(o, 34));
+    sw.setAttribute('aria-label', `${o.name || 'この推し'} のアイコンを変える`);
     row.appendChild(sw);
 
     const input = document.createElement('input');
@@ -1629,20 +1699,91 @@ function drawOshi(){
     row.appendChild(del);
     box.appendChild(row);
 
+    const pick = document.createElement('div');
+    pick.className = 'icon-pick';
+    pick.hidden = (openPalette !== o.id);
+    sw.onclick = () => { openPalette = (openPalette === o.id) ? null : o.id; drawOshi(); };
+
+    // ① 写真
+    const actLabel = document.createElement('p');
+    actLabel.className = 'row-label'; actLabel.textContent = '推しの写真を使う';
+    const acts = document.createElement('div');
+    acts.className = 'pick-acts';
+    const photo = document.createElement('button');
+    photo.textContent = '📷 写真を選ぶ';
+    photo.onclick = () => pickPhoto(o);
+    const clear = document.createElement('button');
+    clear.textContent = '✕ アイコンを消す';
+    clear.onclick = () => { o.icon = ''; save(); drawOshi(); render(); };
+    acts.append(photo, clear);
+    pick.append(actLabel, acts);
+
+    // ② 絵文字
+    const emLabel = document.createElement('p');
+    emLabel.className = 'row-label'; emLabel.textContent = '絵文字から選ぶ';
+    const grid = document.createElement('div');
+    grid.className = 'emoji-grid';
+    EMOJI.forEach(em => {
+      const b = document.createElement('button');
+      b.textContent = em;
+      if(o.icon === em) b.classList.add('on');
+      b.onclick = () => { o.icon = em; save(); drawOshi(); render(); };
+      grid.appendChild(b);
+    });
+    pick.append(emLabel, grid);
+
+    // ③ 色（カレンダーの帯の色にもなる）
+    const cLabel = document.createElement('p');
+    cLabel.className = 'row-label'; cLabel.textContent = '色を選ぶ（カレンダーの帯の色になります）';
     const colors = document.createElement('div');
     colors.className = 'colors';
-    colors.hidden = (openPalette !== o.id);
     PALETTE.forEach(c => {
       const b = document.createElement('button');
       b.style.background = c;
       b.setAttribute('aria-label', '色を変える');
       if(c === o.color) b.classList.add('on');
-      b.onclick = () => { o.color = c; openPalette = null; save(); drawOshi(); render(); };
+      b.onclick = () => { o.color = c; save(); drawOshi(); render(); };
       colors.appendChild(b);
     });
-    sw.onclick = () => { openPalette = (openPalette === o.id) ? null : o.id; drawOshi(); };
-    box.appendChild(colors);
+    pick.append(cLabel, colors);
+    box.appendChild(pick);
   });
+}
+
+/* 写真を選んでアイコンにする。
+   元の画像をそのまま持つと、スマホの写真は数MBあって保存の上限をすぐ超える。
+   真ん中を正方形に切って160pxまで縮め、10KB前後にしてから持つ。 */
+function pickPhoto(o){
+  const inp = document.getElementById('oshi-file');
+  inp.onchange = ev => {
+    const f = ev.target.files && ev.target.files[0];
+    ev.target.value = '';                       // 同じ写真をもう一度選べるようにする
+    if(!f) return;
+    if(!f.type.startsWith('image/')){ alert('写真を選んでください。'); return; }
+    const url = URL.createObjectURL(f);
+    const img = new Image();
+    img.onload = () => {
+      try{
+        const c = document.createElement('canvas');
+        c.width = c.height = ICON_PX;
+        const g = c.getContext('2d');
+        const m = Math.min(img.width, img.height);      // 短いほうに合わせて中央を切り出す
+        g.drawImage(img, (img.width - m) / 2, (img.height - m) / 2, m, m, 0, 0, ICON_PX, ICON_PX);
+        o.icon = c.toDataURL('image/jpeg', 0.82);
+      }catch(e){
+        alert('この写真は使えませんでした。別の写真を選んでください。');
+      }finally{
+        URL.revokeObjectURL(url);
+      }
+      save(); drawOshi(); render();
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      alert('この写真は読み込めませんでした。別の写真を選んでください。');
+    };
+    img.src = url;
+  };
+  inp.click();
 }
 
 document.getElementById('oshi-add').onclick = () => {

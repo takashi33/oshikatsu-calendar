@@ -286,5 +286,17 @@ ok(!/^.{76,}$/m.test(ics2), 'アラームを足しても75オクテット超の�
 ok(api.state.isSample === true, '初回はサンプル扱いになる');
 ok(api.normalize({}).isSample === false, '読み込んだデータはサンプル扱いしない');
 
+/* ---------------- 14. 推しのアイコン ---------------- */
+console.log('\n--- アイコン ---');
+ok(api.normalize({ oshis: [{ id: 'a', icon: '🐰' }] }).oshis[0].icon === '🐰', '絵文字が保たれる');
+ok(api.normalize({ oshis: [{ id: 'a' }] }).oshis[0].icon === '', '未設定は空文字');
+const dataUri = 'data:image/jpeg;base64,AAAA';
+ok(api.normalize({ oshis: [{ id: 'a', icon: dataUri }] }).oshis[0].icon === dataUri, '写真（data:）が保たれる');
+ok(api.normalize({ oshis: [{ id: 'a', icon: 12345 }] }).oshis[0].icon === '12345', '文字列以外でも落ちない');
+// 書き出し・読み込みでアイコンが往復するか
+const withIcon = { oshis: [{ id: 'a', name: '推し', color: '#ff7aa8', icon: '🐰' }], events: [] };
+const round = api.normalize(JSON.parse(JSON.stringify(api.normalize(withIcon))));
+ok(round.oshis[0].icon === '🐰', '控えを取って戻してもアイコンが残る');
+
 console.log(ng === 0 ? '\n✅ 全項目パス' : `\n❌ ${ng}件失敗`);
 process.exit(ng === 0 ? 0 : 1);
