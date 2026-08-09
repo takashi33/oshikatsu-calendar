@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 推し活カレンダーを GitHub Pages へ公開する。
+# 推しごとカレンダーを GitHub Pages へ公開する。
 #
 # GitHub のページを開いて手作業する工程を置き換えるもの。認証は Windows 資格情報
 # マネージャー（Git Credential Manager）に保存済みのものを使うので、ログインは不要。
