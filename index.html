@@ -87,6 +87,23 @@ header{
 .item.done .name{text-decoration:line-through}
 .item.done{opacity:.5}
 
+/* はじめかた（まだ何も入っていないときの案内） */
+.step{display:flex;gap:11px;padding:12px 0;border-top:1px solid var(--line)}
+.step .no{
+  flex:0 0 26px;height:26px;border-radius:50%;display:grid;place-items:center;
+  font-size:13px;font-weight:700;background:var(--accent);color:#fff;
+}
+.step.done .no{background:#9ad6a3}
+.step .s-body{flex:1;min-width:0}
+.step .s-title{font-weight:700}
+.step.done .s-title{color:var(--sub);text-decoration:line-through}
+.step .s-desc{font-size:13px;color:var(--sub);line-height:1.7;margin-top:2px}
+.step .s-btn{
+  margin-top:9px;background:var(--accent);color:#fff;border:none;border-radius:10px;
+  padding:10px 14px;font-size:13px;font-weight:700;
+}
+.step .s-btn.sub{background:var(--bg);color:var(--text);border:1px solid var(--line);margin-left:6px}
+
 /* ふりかえり */
 .rv{display:flex;gap:8px;margin:10px 0 4px}
 .rv div{
@@ -153,7 +170,8 @@ header{
 .countdown .cd-num em{font-size:19px;font-style:normal;color:var(--accent)}
 
 /* ---------- フィルタ ---------- */
-.filters{display:flex;gap:6px;overflow-x:auto;padding:10px 0 2px;-webkit-overflow-scrolling:touch}
+.filters-label{font-size:11px;color:var(--sub);margin:10px 0 0}
+.filters{display:flex;gap:6px;overflow-x:auto;padding:6px 0 2px;-webkit-overflow-scrolling:touch}
 .filters::-webkit-scrollbar{display:none}
 .chip{
   flex:0 0 auto;display:flex;align-items:center;gap:6px;
@@ -241,6 +259,9 @@ header{
 .row2{display:flex;gap:8px}
 .row2>div{flex:1;min-width:0}
 /* ふだん使わない項目は畳んでおく。よく足すのは「だれの・タイトル・種類・日付」だけ */
+/* 入力欄の下に添える一言。何のための項目かをその場で伝える */
+.field-hint{font-size:12px;color:var(--sub);line-height:1.7;margin:7px 0 0}
+.field-hint strong{color:var(--accent)}
 .more-toggle{
   width:100%;margin-top:16px;border:1px dashed var(--line);background:none;
   border-radius:10px;padding:10px;font-size:13px;color:var(--sub);
@@ -372,6 +393,7 @@ textarea{min-height:104px;resize:vertical}
     シークレットモード（プライベートブラウズ）で開いていませんか。ふつうの画面で開き直してみてください。
   </div>
 
+  <p class="filters-label" id="filters-label">押すと、その人の予定を隠したり出したりできます</p>
   <div class="filters" id="filters"></div>
 
   <!-- ホーム表示 -->
@@ -395,7 +417,14 @@ textarea{min-height:104px;resize:vertical}
       <div class="hero-count"><b id="hero-num"></b><small id="hero-unit"></small></div>
     </div>
     <div class="hero-none" id="hero-none" hidden>
-      これから先に推しの予定がありません。<br>下の「貼り付けて読み取り」から追加できます。
+      これから先の推しの予定は、まだ入っていません。<br>
+      下の「📋 文章から予定を作る」か、「＋ 予定」から入れられます。
+    </div>
+
+    <div class="card" id="start-card" hidden>
+      <h3>はじめかた</h3>
+      <p class="hint" style="margin:0 0 4px">この2つを済ませれば、あとは自由に使えます。</p>
+      <div id="start-steps"></div>
     </div>
 
     <div class="card" id="dl-card" hidden>
@@ -403,19 +432,19 @@ textarea{min-height:104px;resize:vertical}
       <div id="dl-list"></div>
     </div>
 
-    <div class="card">
+    <div class="card" id="home-card">
       <h3><span id="home-label"></span><button class="add" id="addhere3">＋ 予定</button></h3>
       <div id="home-list"></div>
     </div>
 
-    <div class="card">
+    <div class="card" id="money-card">
       <h3>💰 今月の推し活費</h3>
       <div class="money"><b id="money-total"></b><span id="money-count"></span></div>
       <div id="money-break"></div>
       <p class="hint" id="money-year"></p>
     </div>
 
-    <div class="card">
+    <div class="card" id="rv-card">
       <h3 id="rv-head"></h3>
       <div class="rv">
         <div><b id="rv-count"></b><small>推しの予定</small></div>
@@ -468,6 +497,7 @@ textarea{min-height:104px;resize:vertical}
     <input type="text" id="ev-title" placeholder="例）東京ドーム公演 / 通院">
     <label>種類</label>
     <div class="seg" id="ev-type"></div>
+    <p class="field-hint" id="ev-type-hint"></p>
     <div class="row2">
       <div><label for="ev-date">日付</label><input type="date" id="ev-date"></div>
       <div><label for="ev-time">時刻（空欄可）</label><input type="time" id="ev-time"></div>
@@ -479,6 +509,9 @@ textarea{min-height:104px;resize:vertical}
         <div><label for="ev-cost">かかるお金（円）</label><input type="number" id="ev-cost" min="0" step="100" inputmode="numeric" placeholder="0"></div>
       </div>
       <label>繰り返し</label>
+      <p class="field-hint" style="margin-top:0;margin-bottom:6px">
+        毎日の配信のように、決まって続くもの。1回入れるだけで先まで並びます。
+      </p>
       <div class="seg" id="ev-repeat"></div>
       <div id="ev-until-wrap" hidden>
         <label for="ev-until">いつまで（空欄なら期限なし）</label>
@@ -659,7 +692,7 @@ textarea{min-height:104px;resize:vertical}
    ・外部サイトからの自動取得は行わない（理由は knowledge/external-data-fetch.md）
    ========================================================= */
 
-const APP_VERSION = '3.0.0';
+const APP_VERSION = '3.1.0';
 const STORE_KEY = 'oshi-cal-v1';
 const PALETTE = ['#ff7aa8','#7ec8e3','#ffc25c','#9ad6a3','#c39aeb','#ff9f7a','#6fd0c4','#e88fb8'];
 const TYPES = [
@@ -876,11 +909,62 @@ function render(){
 /* ---------- ホーム ---------- */
 function renderHome(){
   document.getElementById('sample-note').hidden = !state.isSample;
+
+  // まだ何も入っていないうちは、集計を並べても「0」が続くだけで手が止まる。
+  // やることを1つに絞った案内だけを出す。
+  const hasOshi = state.oshis.length > 0;
+  const hasEvent = state.events.length > 0;
+  renderStart(hasOshi, hasEvent);
+  document.getElementById('start-card').hidden = hasOshi && hasEvent;
+  document.getElementById('home-card').hidden  = !hasEvent;
+  document.getElementById('money-card').hidden = !hasEvent;
+  document.getElementById('rv-card').hidden    = !hasEvent;
+
   renderHero();
+  if(!hasEvent){ document.getElementById('hero-none').hidden = true; }
   renderDeadlines();
-  renderHomeList();
-  renderMoney();
-  renderReview();
+  if(hasEvent){ renderHomeList(); renderMoney(); renderReview(); }
+}
+
+/* はじめかた。済んだ手順には取り消し線を引いて、進み具合が見えるようにする */
+function renderStart(hasOshi, hasEvent){
+  const box = document.getElementById('start-steps');
+  box.textContent = '';
+  const steps = [
+    {done:hasOshi, title:'推しを登録する',
+     desc:'名前を入れるだけです。何人でも登録できます。ここで決めた色が、カレンダーの中でその推しの目印になります。',
+     btns:[['推しを登録する', openOshi]]},
+    {done:hasEvent, title:'予定をひとつ入れてみる',
+     desc:'公式のお知らせをコピーして貼るのがいちばん楽です。日にちを探して候補を出します。自分で打ち込むこともできます。',
+     btns:[['📋 文章を貼って作る', () => document.getElementById('btn-paste').onclick()],
+           ['自分で入力', () => { selected = TODAY; openEvent(null); }]]}
+  ];
+  steps.forEach((s, i) => {
+    const row = document.createElement('div');
+    row.className = 'step' + (s.done ? ' done' : '');
+    const no = document.createElement('div');
+    no.className = 'no'; no.textContent = s.done ? '✓' : String(i + 1);
+    const body = document.createElement('div');
+    body.className = 's-body';
+    const t = document.createElement('div');
+    t.className = 's-title'; t.textContent = s.title;
+    body.appendChild(t);
+    if(!s.done){
+      const d = document.createElement('div');
+      d.className = 's-desc'; d.textContent = s.desc;
+      body.appendChild(d);
+      const wrap = document.createElement('div');
+      s.btns.forEach(([label, fn], k) => {
+        const b = document.createElement('button');
+        b.className = 's-btn' + (k ? ' sub' : '');
+        b.textContent = label; b.onclick = fn;
+        wrap.appendChild(b);
+      });
+      body.appendChild(wrap);
+    }
+    row.append(no, body);
+    box.appendChild(row);
+  });
 }
 
 /* つぎの推しの予定。一度きりの予定を優先して探す。
@@ -1106,6 +1190,15 @@ function renderReview(){
 }
 
 function renderFilters(){
+  // 推しが1人もいないうちは、隠す・出すの説明を出しても意味がない
+  const hidden = state.hidden.filter(id => owners().some(o => o.id === id)).length;
+  const label = document.getElementById('filters-label');
+  label.hidden = !state.oshis.length;
+  label.textContent = hidden
+    ? `いま ${hidden}人ぶんの予定を隠しています（押すと戻ります）`
+    : '押すと、その人の予定を隠したり出したりできます';
+  label.style.color = hidden ? 'var(--accent)' : '';
+
   const box = document.getElementById('filters');
   box.textContent = '';
   owners().forEach(o => {
@@ -1260,7 +1353,8 @@ function renderUpcoming(){
     p.className = 'empty';
     p.textContent = q
       ? `「${q}」に合う予定は見つかりませんでした。`
-      : 'これからの予定はありません。下の「＋ 予定」か「貼り付けて読み取り」から追加できます。';
+      : 'これから先の予定は、まだ入っていません。上の「＋ 予定」か、'
+        + '下の「📋 文章から予定を作る」から入れられます。';
     box.appendChild(p);
   }
 }
@@ -1371,7 +1465,9 @@ function openEvent(ev, asCopy){
   document.getElementById('ev-memo').value  = ev ? (ev.memo || '') : '';
   document.getElementById('ev-del').hidden  = !ev || asCopy;
   drawSeg('ev-owner',  owners().map(o => ({id:o.id, label:o.name})),        () => evOwner,  v => { evOwner = v; });
-  drawSeg('ev-type',   TYPES.map(t => ({id:t.id, label:t.icon + t.label})), () => evType,   v => { evType = v; });
+  drawSeg('ev-type',   TYPES.map(t => ({id:t.id, label:t.icon + t.label})), () => evType,
+          v => { evType = v; syncTypeHint(); });
+  syncTypeHint();
   drawSeg('ev-repeat', REPEATS.map(r => ({id:r.id, label:r.label})),        () => evRepeat, v => { evRepeat = v; syncUntil(); });
   syncUntil();
 
@@ -1390,6 +1486,23 @@ function setMore(open){
 document.getElementById('ev-more-toggle').onclick =
   () => setMore(document.getElementById('ev-more').hidden);
 function syncUntil(){ document.getElementById('ev-until-wrap').hidden = !evRepeat; }
+
+/* 選んだ種類が何に効くのかを、その場に出す。
+   とくに「締切」は、選ぶとホームの扱いが変わることを知らせないと気づけない。 */
+function syncTypeHint(){
+  const hint = document.getElementById('ev-type-hint');
+  hint.textContent = '';
+  if(evType === 'deadline'){
+    hint.append('チケットの申込や入金など、');
+    const s = document.createElement('strong');
+    s.textContent = '過ぎたら取り返しがつかないもの';
+    hint.append(s, '。ホームの上のほうに「あと◯日」と出て、3日を切ると赤くなります。');
+  }else if(evType === 'bday'){
+    hint.textContent = '毎年くるものは、繰り返しを「毎月」ではなく、来年ぶんをまた入れてください。';
+  }else{
+    hint.textContent = 'カレンダーでの目印が変わります。あとから「これから」で絞り込むときにも使えます。';
+  }
+}
 
 /* 繰り返し予定の注意書き。休みにした回があれば、まとめて戻せるようにする */
 function drawRepeatNote(ev){
@@ -1495,6 +1608,7 @@ function drawOshi(){
 
     const input = document.createElement('input');
     input.type = 'text'; input.value = o.name;
+    input.placeholder = '推しの名前を入れてください';
     input.setAttribute('aria-label', '推しの名前');
     input.oninput = () => { o.name = input.value; save(); renderFilters(); render(); };
     row.appendChild(input);
@@ -1534,10 +1648,21 @@ function drawOshi(){
 document.getElementById('oshi-add').onclick = () => {
   const used = state.oshis.map(o => o.color);
   const color = PALETTE.find(c => !used.includes(c)) || PALETTE[state.oshis.length % PALETTE.length];
-  state.oshis.push({id:uid(), name:`推し${state.oshis.length + 1}`, color});
+  const o = {id:uid(), name:'', color};
+  state.oshis.push(o);
   save(); drawOshi(); render();
+  // 「推し1」のまま放置されないよう、名前の欄にすぐ入力できる状態にする
+  const inputs = document.querySelectorAll('#oshi-list .oshi-row input[type=text]');
+  const last = inputs[inputs.length - 1];
+  if(last){ last.focus(); }
 };
-document.getElementById('oshi-close').onclick = () => hide('m-oshi');
+document.getElementById('oshi-close').onclick = () => {
+  // 名前が空のまま閉じられると、カレンダー上で誰の予定か分からなくなる
+  let fixed = 0;
+  state.oshis.forEach((o, i) => { if(!o.name.trim()){ o.name = `推し${i + 1}`; fixed++; } });
+  if(fixed) save();
+  hide('m-oshi'); render();
+};
 document.getElementById('btn-oshi').onclick = openOshi;
 
 /* =========================================================
