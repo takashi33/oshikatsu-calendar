@@ -298,5 +298,13 @@ const withIcon = { oshis: [{ id: 'a', name: '推し', color: '#ff7aa8', icon: '�
 const round = api.normalize(JSON.parse(JSON.stringify(api.normalize(withIcon))));
 ok(round.oshis[0].icon === '🐰', '控えを取って戻してもアイコンが残る');
 
+/* ---------------- 15. 開いていた画面を覚える ---------------- */
+console.log('\n--- 画面の記憶 ---');
+ok(api.normalize({ mode: 'cal' }).mode === 'cal', 'カレンダー画面が保たれる');
+ok(api.normalize({ mode: 'list' }).mode === 'list', 'これから画面が保たれる');
+ok(api.normalize({}).mode === 'home', '指定がなければホーム');
+ok(api.normalize({ mode: 'そんな画面ない' }).mode === 'home', '知らない値はホームに落とす');
+ok(api.state.mode === 'home', '初回はホームから始まる');
+
 console.log(ng === 0 ? '\n✅ 全項目パス' : `\n❌ ${ng}件失敗`);
 process.exit(ng === 0 ? 0 : 1);
