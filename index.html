@@ -1254,7 +1254,7 @@ function renderMoney(){
 
   const year = spendBetween(ymd(new Date(y,0,1)), ymd(new Date(y,11,31))).total;
   document.getElementById('money-year').textContent = total
-    ? `${y}年の合計は ${yen(year)}　／　なお、経費では落ちません`
+    ? `${y}年の合計は ${yen(year)}`
     : `予定に金額を入れると、ここに自動で積み上がります`;
 }
 
