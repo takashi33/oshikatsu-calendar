@@ -54,8 +54,9 @@ header{
 }
 .title{display:flex;align-items:center;gap:8px;font-weight:700;font-size:17px;margin:0 0 9px}
 .title .dotmark{width:10px;height:10px;border-radius:50%;background:var(--accent);flex:0 0 10px}
+.head-btns{margin-left:auto;display:flex;gap:6px;flex:0 0 auto}
 .title .gear{
-  margin-left:auto;background:var(--panel);border:1px solid var(--line);
+  background:var(--panel);border:1px solid var(--line);
   border-radius:10px;width:34px;height:34px;display:grid;place-items:center;font-size:15px;
 }
 .tabs{display:flex;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:11px;padding:3px;margin-bottom:9px}
@@ -414,7 +415,10 @@ textarea{min-height:104px;resize:vertical}
   <header>
     <p class="title">
       <span class="dotmark"></span>推しごとカレンダー
-      <button class="gear" id="btn-set" aria-label="設定">⚙️</button>
+      <span class="head-btns">
+        <button class="gear" id="btn-help" aria-label="使い方を見る">📖</button>
+        <button class="gear" id="btn-set" aria-label="設定">⚙️</button>
+      </span>
     </p>
     <div class="tabs" role="tablist">
       <button id="tab-home" class="on" role="tab">ホーム</button>
@@ -629,12 +633,16 @@ textarea{min-height:104px;resize:vertical}
     </p>
     <p>自分の予定と推しの予定を、ひとつのカレンダーに並べて見るアプリです。「バイトの日にライブが重なってた」を防ぐのが目的です。</p>
 
+    <p class="hint" style="margin:10px 0 0">
+      この説明は、いつでも画面右上の <strong>📖</strong> から開けます。
+    </p>
+
     <h4>画面は3つあります</h4>
     <dl>
       <dt>ホーム</dt>
       <dd>次の推しの予定まであと何日か。逃せない締切。今月いくら使ったか。まずここを見ます。</dd>
       <dt>カレンダー</dt>
-      <dd>ひと月の表です。<strong>自分の予定はグレー、推しの予定は推しの色</strong>で並びます。日にちを押すと、その日の中身が下に出ます。横に払うと次の月へ動きます。</dd>
+      <dd>ひと月の表です。<strong>自分の予定はグレー、推しの予定は推しの色</strong>で並びます。日にちを押すと、その日の中身が下に出ます。<strong>日付のマス目の上を横に払うと、前の月・次の月へ動きます</strong>（上の ‹ › でも動きます）。</dd>
       <dt>これから</dt>
       <dd>先の予定を、日付順にずらっと並べたものです。上の枠に文字を入れると絞り込めます。</dd>
     </dl>
@@ -752,7 +760,7 @@ textarea{min-height:104px;resize:vertical}
    ・外部サイトからの自動取得は行わない（理由は knowledge/external-data-fetch.md）
    ========================================================= */
 
-const APP_VERSION = '3.6.0';
+const APP_VERSION = '3.7.0';
 const STORE_KEY = 'oshi-cal-v1';
 const PALETTE = ['#ff7aa8','#7ec8e3','#ffc25c','#9ad6a3','#c39aeb','#ff9f7a','#6fd0c4','#e88fb8'];
 const TYPES = [
@@ -1366,6 +1374,7 @@ function renderGrid(){
       cell.appendChild(more);
     }
     cell.onclick = () => {
+      if(Date.now() - swipedAt < 400) return;   // 月を送った直後の指離しは無視する
       selected = key;
       if(d.getMonth() !== mo) view = new Date(d.getFullYear(), d.getMonth(), 1);
       render();
@@ -2217,6 +2226,7 @@ function openHelp(){
   document.querySelector('#m-help .sheet').scrollTop = 0;
 }
 document.getElementById('set-help').onclick  = () => { hide('m-set'); openHelp(); };
+document.getElementById('btn-help').onclick  = openHelp;
 document.getElementById('sn-help').onclick   = openHelp;
 document.getElementById('help-close').onclick = () => hide('m-help');
 
@@ -2257,9 +2267,28 @@ const goMonth = n => { view.setMonth(view.getMonth() + n); render(); };
 document.getElementById('prev').onclick = () => goMonth(-1);
 document.getElementById('next').onclick = () => goMonth(1);
 
-/* ⚠️ 横に払って月を送る仕掛けは入れない（2026-08-10 に削除）。
-   縦に動かしたいだけのときに月が変わってしまい、画面が左右に動くと指摘されたため。
-   月の移動は ‹ › の矢印だけにしてある。 */
+/* 横に払って月を送る。ただし効かせるのは日付のマス目の上だけ。
+   はじめは画面のどこでも効くようにしていたが、縦に動かしたいだけのときに
+   月が変わってしまい「左右に動く」と指摘を受けた。そこで次の3つで絞っている。
+     ① 効く場所を日付のマス目に限る（見出しや下のカードでは効かない）
+     ② 横の動きが縦の2倍を超えたときだけ（斜めや縦は無視する）
+     ③ 70px以上の動きが必要（軽い指のブレでは反応しない）
+   body に touch-action:pan-y があるので、横に払っても画面自体は動かない。 */
+let swipedAt = 0;
+(() => {
+  const grid = document.getElementById('grid');
+  let x0 = 0, y0 = 0;
+  grid.addEventListener('touchstart', e => {
+    const t = e.changedTouches[0]; x0 = t.clientX; y0 = t.clientY;
+  }, {passive:true});
+  grid.addEventListener('touchend', e => {
+    const t = e.changedTouches[0];
+    const dx = t.clientX - x0, dy = t.clientY - y0;
+    if(Math.abs(dx) < 70 || Math.abs(dx) <= Math.abs(dy) * 2) return;
+    swipedAt = Date.now();          // 払った直後のタップを日付選択と取り違えない
+    goMonth(dx < 0 ? 1 : -1);
+  }, {passive:true});
+})();
 document.getElementById('gotoday').onclick = () => {
   selected = TODAY; view = fromYmd(TODAY); view.setDate(1); render();
 };
