@@ -50,7 +50,7 @@ const alert = () => {};
 const confirm = () => true;
 const window = { addEventListener: () => {} };
 // 「ほかのアプリから共有で開かれたか」を見るのに使っている。素の Node には無い。
-const location = { search: '', pathname: '/', protocol: 'http:' };
+const location = { search: '', pathname: '/', protocol: 'http:', href: 'http://localhost/' };
 const history = { replaceState: () => {} };
 
 let api;
@@ -60,7 +60,7 @@ try {
     'location', 'history',
     m[1] + '\nreturn { parseText, occursOn, normalize, eventsOn, ymd, fromYmd, addDays, daysBetween,'
          + ' TODAY, state, typeOf, APP_VERSION, holidaysOf, holidayName, buildICS, icsFold, icsEscape,'
-         + ' guessType, spendBetween, yen, shade, nextOshiEvent, alarmsFor };'
+         + ' guessType, spendBetween, yen, shade, nextOshiEvent, alarmsFor, sharedTextFromUrl };'
   )(document, localStorage, getComputedStyle, alert, confirm, window, location, history);
 } catch (e) {
   console.error('❌ 実行時に例外:', e.message, '\n', e.stack);
@@ -310,6 +310,47 @@ ok(api.normalize({}).mode === 'cal', '指定がなければカレンダー');
 ok(api.normalize({ mode: 'そんな画面ない' }).mode === 'cal', '知らない値はカレンダーに落とす');
 ok(api.state.mode === 'cal', '初回はカレンダーから始まる');
 ok(api.normalize({ mode: 'home' }).mode === 'home', 'ホームを選んでいれば覚えている');
+
+/* ---------------- 16. ほかのアプリから共有で受け取る ----------------
+   iPhoneのショートカットは「URLを開く」1アクションで済ませたい。つまり
+   エンコードされずに素の文章が載ってくる。Xの投稿はハッシュタグだらけなので、
+   「#」で本文が切れないことがこの機能の生命線。 */
+console.log('\n--- 共有で受け取る ---');
+const S = api.sharedTextFromUrl;
+const BASE = 'https://takashi33.github.io/oshikatsu-calendar/';
+
+ok(S(BASE) === '', '共有でないときは何も返さない');
+ok(S(BASE + '?text=') === '', '空の共有は無視する');
+ok(S(undefined) === '', 'hrefが無くても落ちない');
+
+// 素のまま（iOSショートカットが素通しした場合）
+ok(S(BASE + '?text=8/15 18:00 開演') === '8/15 18:00 開演', '素の文章をそのまま読む');
+
+// ★ ハッシュタグ：「#」以降が location.hash に落ちても本文を落とさない
+ok(S(BASE + '?text=8/15 18:00 開演 #夏フェス2026 #出演') === '8/15 18:00 開演 #夏フェス2026 #出演',
+   'ハッシュタグで本文が切れない');
+// 「&」で分断されても落とさない
+ok(S(BASE + '?text=8/15 開演 & 物販あり') === '8/15 開演 & 物販あり', '「&」で本文が切れない');
+
+// エンコードされて届いた場合（ショートカットが変換した／Androidの共有）
+ok(S(BASE + '?text=' + encodeURIComponent('8/15 18:00 開演 #夏フェス')) === '8/15 18:00 開演 #夏フェス',
+   'エンコードされていれば戻す');
+// Androidの share_target は title / text / url の3つに分かれて届く
+ok(S(BASE + '?title=夏フェス2026&text=8/15 18:00 開演&url=https://example.com/a')
+   === '夏フェス2026\n8/15 18:00 開演\nhttps://example.com/a', '3つに分かれた共有を行で繋ぐ');
+// Xの共有がURLだけを寄越す場合。日付が無いので候補は0件になる（＝要注意の入力）
+ok(S(BASE + '?url=https://x.com/foo/status/123') === 'https://x.com/foo/status/123', 'URLだけでも受け取る');
+ok(api.parseText(S(BASE + '?url=https://x.com/foo/status/123')).length === 0,
+   'URLだけでは予定を作れない（本文が要る）');
+
+// 「%」を含む素の文章を、壊れたエンコードとして潰さない
+ok(S(BASE + '?text=10%OFF 8/15 開演') === '10%OFF 8/15 開演', '「%」入りの素の文章を壊さない');
+
+// 受け取った文章から、実際に予定が読み取れるところまで通す
+const shared = S(BASE + '?text=8/15(金) 18:00 開演　夏フェス2026 出演 #夏フェス');
+const sharedGot = api.parseText(shared);
+ok(sharedGot.length === 1 && sharedGot[0].date === '2026-08-15' && sharedGot[0].time === '18:00',
+   '共有された文章から予定を作れる', JSON.stringify(sharedGot));
 
 console.log(ng === 0 ? '\n✅ 全項目パス' : `\n❌ ${ng}件失敗`);
 process.exit(ng === 0 ? 0 : 1);

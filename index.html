@@ -672,7 +672,9 @@ textarea{min-height:104px;resize:vertical}
     <h4>③ ほかのアプリから送る（いちばん楽）</h4>
     <p>XやWebサイトでお知らせを見ているとき、<strong>その画面の「共有」から、このアプリに送れます。</strong>コピーして、アプリを開いて、貼る——という3つの手間がなくなります。送ると、読み取った結果がすぐ出ます。</p>
     <p><strong>Androidの場合：</strong>ホーム画面に追加してあれば、共有の一覧に「推しごとカレンダー」が出ます。</p>
-    <p><strong>iPhoneの場合：</strong>共有の一覧には出ません。かわりに「ショートカット」アプリで、<strong>共有シートから受け取ったテキストを付けてこのアプリを開く</strong>ショートカットを1つ作っておくと、同じことができます。</p>
+    <p><strong>iPhoneの場合：</strong>iPhoneは、共有の一覧にこのアプリを直接出せない決まりになっています。かわりに<strong>受け取り口をひとつ入れてください。</strong>下のボタンを押して「追加」を押すだけです。一度入れれば、Xの共有に出るようになります。</p>
+    <p id="sc-wrap"><button class="primary" id="btn-shortcut">📲 Xの共有から送れるようにする</button></p>
+    <p class="hint" id="sc-none" hidden>※iPhone用の受け取り口はただいま準備中です。それまでは上の「② 貼り付ける」でお使いください。</p>
 
     <h4>締切を逃さないために</h4>
     <p>チケットの申込や入金など、<strong>過ぎたら取り返しがつかないもの</strong>は、種類を「🎫 締切」にしてください。ホームのいちばん上のほうに「あと◯日」と出ます。3日を切ると赤くなります。</p>
@@ -778,7 +780,7 @@ textarea{min-height:104px;resize:vertical}
    ・外部サイトからの自動取得は行わない（理由は knowledge/external-data-fetch.md）
    ========================================================= */
 
-const APP_VERSION = '4.0.2';
+const APP_VERSION = '4.1.0';
 const STORE_KEY = 'oshi-cal-v1';
 const PALETTE = ['#ff7aa8','#7ec8e3','#ffc25c','#9ad6a3','#c39aeb','#ff9f7a','#6fd0c4','#e88fb8'];
 const TYPES = [
@@ -2358,19 +2360,59 @@ document.getElementById('gotoday').onclick = () => {
 
 render();
 
+/* ---------- iPhone用の受け取り口（iOSショートカット） ----------
+   iOSは共有シートにWebアプリを出せない。ショートカットを1つ入れてもらうのが唯一の道。
+   ⚠️ Webページからショートカットを作ることはiOS側が許していない。配れるのは
+   「作った端末が書き出したiCloudの共有リンク」だけ。ここにそれを入れる。
+   ⚠️ このリンクは作成者のApple IDに紐づく。消すと配布先の再設定手段が無くなる。
+   空のあいだはボタンを隠し、代わりに準備中の断りを出す（押せて何も起きないのが最悪）。 */
+const SHORTCUT_URL = '';
+(() => {
+  if(SHORTCUT_URL){
+    document.getElementById('btn-shortcut').onclick = () => { location.href = SHORTCUT_URL; };
+  }else{
+    document.getElementById('sc-wrap').hidden = true;
+    document.getElementById('sc-none').hidden = false;
+  }
+})();
+
 /* ---------- ほかのアプリから文章を受け取る ----------
    X や公式サイトの「共有」からこのアプリへ送ると、?text=... の形で開かれる。
    その場合は貼り付け画面を開いて、先に読み取っておく。
    コピー → アプリを開く → 貼る、の3手間がなくなる。
    ⚠️ サーバーは要らない。受け取っているのは自分の端末の中だけ。 */
 (() => {
-  const q = new URLSearchParams(location.search);
-  const shared = [q.get('title'), q.get('text'), q.get('url')].filter(Boolean).join('\n').trim();
+  /* ⚠️ ここで URLSearchParams を使ってはいけない。
+     Xの投稿にはハッシュタグの「#」がほぼ必ず入る。素のURLに「#」が載ると、
+     そこから先はクエリではなく location.hash に落ちるため、本文が途中で欠ける。
+     「&」も同じ理由で分断される。
+     そこで href の末尾までを一続きとして拾い、title/text/url の区切りだけを改行に戻す。
+     こうしておくと送り出す側がURLエンコードをしなくても本文が届くので、
+     iOSのショートカットを「URLを開く」1アクションのまま保てる。
+     （簡素にする負担を、渡す相手ではなくこちら側で引き受けるということ） */
+  const shared = sharedTextFromUrl(location.href);
   if(!shared) return;
   // 再読み込みで二度開かないよう、URLから消しておく
   history.replaceState(null, '', location.pathname);
   openPaste(shared);
 })();
+
+/* URL全体から、共有で送られてきた本文を取り出す。無ければ空文字。
+   受け取りの要はここ1か所なので、test.js から直接呼んで検査している。 */
+function sharedTextFromUrl(href){
+  if(!href) return '';
+  const at = href.search(/[?&](?:title|text|url)=/);
+  if(at < 0) return '';
+
+  let shared = href.slice(href.indexOf('=', at) + 1)
+    .replace(/[?&](?:title|text|url)=/g, '\n');   // Androidの共有は3つに分かれて届く
+
+  // エンコードされていれば戻す。素のまま来ていたら、壊さずそのまま使う
+  if(/%[0-9A-Fa-f]{2}/.test(shared)){
+    try { shared = decodeURIComponent(shared.replace(/\+/g, ' ')); } catch(e){}
+  }
+  return shared.trim();
+}
 
 // はじめて開いた人には、何ができるアプリなのかを先に見せる
 if(!state.helpSeen && document.getElementById('m-paste').hidden) openHelp();
