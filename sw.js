@@ -6,7 +6,7 @@
  *
  * ⚠️ index.html を更新したら CACHE の版数も上げること。古いキャッシュはその時点で捨てられる。
  */
-const CACHE = 'oshi-cal-3.7.0';
+const CACHE = 'oshi-cal-3.8.0';
 const ASSETS = [
   './',
   './index.html',

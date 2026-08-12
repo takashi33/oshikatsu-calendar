@@ -656,9 +656,14 @@ textarea{min-height:104px;resize:vertical}
     <dl>
       <dt>① 自分で入力する</dt>
       <dd>「＋ 予定」を押します。<strong>だれの予定か・タイトル・種類・日にち</strong>だけ入れれば保存できます。場所やお金は「＋」を押すと出てきます。</dd>
-      <dt>② 告知の文章を貼り付ける</dt>
+      <dt>② 告知の文章を貼り付ける（下の「📋 文章から予定を作る」）</dt>
       <dd>下の「📋 文章から予定を作る」を押して、<strong>公式サイトやSNSのお知らせをそのままコピーして貼る</strong>だけです。日にちらしいところを探して、候補を出します。中身は必ず目で確かめてから追加してください。</dd>
     </dl>
+
+    <h4>③ ほかのアプリから送る（いちばん楽）</h4>
+    <p>XやWebサイトでお知らせを見ているとき、<strong>その画面の「共有」から、このアプリに送れます。</strong>コピーして、アプリを開いて、貼る——という3つの手間がなくなります。送ると、読み取った結果がすぐ出ます。</p>
+    <p><strong>Androidの場合：</strong>ホーム画面に追加してあれば、共有の一覧に「推しごとカレンダー」が出ます。</p>
+    <p><strong>iPhoneの場合：</strong>共有の一覧には出ません。かわりに「ショートカット」アプリで、<strong>共有シートから受け取ったテキストを付けてこのアプリを開く</strong>ショートカットを1つ作っておくと、同じことができます。</p>
 
     <h4>締切を逃さないために</h4>
     <p>チケットの申込や入金など、<strong>過ぎたら取り返しがつかないもの</strong>は、種類を「🎫 締切」にしてください。ホームのいちばん上のほうに「あと◯日」と出ます。3日を切ると赤くなります。</p>
@@ -760,7 +765,7 @@ textarea{min-height:104px;resize:vertical}
    ・外部サイトからの自動取得は行わない（理由は knowledge/external-data-fetch.md）
    ========================================================= */
 
-const APP_VERSION = '3.7.0';
+const APP_VERSION = '3.8.0';
 const STORE_KEY = 'oshi-cal-v1';
 const PALETTE = ['#ff7aa8','#7ec8e3','#ffc25c','#9ad6a3','#c39aeb','#ff9f7a','#6fd0c4','#e88fb8'];
 const TYPES = [
@@ -1254,7 +1259,7 @@ function renderMoney(){
 
   const year = spendBetween(ymd(new Date(y,0,1)), ymd(new Date(y,11,31))).total;
   document.getElementById('money-year').textContent = total
-    ? `${y}年の合計は ${yen(year)}　／　なお、経費では落ちません`
+    ? `${y}年の合計は ${yen(year)}`
     : `予定に金額を入れると、ここに自動で積み上がります`;
 }
 
@@ -1856,13 +1861,18 @@ document.getElementById('btn-oshi').onclick = openOshi;
 let psOwner = 'me';
 let candidates = [];
 
-document.getElementById('btn-paste').onclick = () => {
-  psOwner = state.oshis[0] ? state.oshis[0].id : 'me';
-  document.getElementById('ps-text').value = '';
+/* prefill を渡すと、その文章を入れた状態で開いてすぐ読み取る。
+   ほかのアプリの「共有」から呼ばれたときに使う。 */
+function openPaste(prefill){
+  const remembered = state.oshis.some(o => o.id === state.lastOwner) ? state.lastOwner : '';
+  psOwner = remembered || (state.oshis[0] ? state.oshis[0].id : 'me');
+  document.getElementById('ps-text').value = prefill || '';
   document.getElementById('ps-result').textContent = '';
   drawSeg('ps-owner', owners().map(o => ({id:o.id, label:o.name})), () => psOwner, v => { psOwner = v; });
   show('m-paste');
-};
+  if(prefill) runRead();
+}
+document.getElementById('btn-paste').onclick = () => openPaste('');
 document.getElementById('ps-cancel').onclick = () => hide('m-paste');
 function runRead(){
   candidates = parseText(document.getElementById('ps-text').value);
@@ -2295,8 +2305,22 @@ document.getElementById('gotoday').onclick = () => {
 
 render();
 
+/* ---------- ほかのアプリから文章を受け取る ----------
+   X や公式サイトの「共有」からこのアプリへ送ると、?text=... の形で開かれる。
+   その場合は貼り付け画面を開いて、先に読み取っておく。
+   コピー → アプリを開く → 貼る、の3手間がなくなる。
+   ⚠️ サーバーは要らない。受け取っているのは自分の端末の中だけ。 */
+(() => {
+  const q = new URLSearchParams(location.search);
+  const shared = [q.get('title'), q.get('text'), q.get('url')].filter(Boolean).join('\n').trim();
+  if(!shared) return;
+  // 再読み込みで二度開かないよう、URLから消しておく
+  history.replaceState(null, '', location.pathname);
+  openPaste(shared);
+})();
+
 // はじめて開いた人には、何ができるアプリなのかを先に見せる
-if(!state.helpSeen) openHelp();
+if(!state.helpSeen && document.getElementById('m-paste').hidden) openHelp();
 
 /* オフラインでも開けるようにする。file:// で開いた場合は登録できないので黙って諦める。 */
 if('serviceWorker' in navigator && location.protocol.startsWith('http')){

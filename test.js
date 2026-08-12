@@ -49,15 +49,19 @@ const getComputedStyle = () => ({ getPropertyValue: () => '#7c8ba1' });
 const alert = () => {};
 const confirm = () => true;
 const window = { addEventListener: () => {} };
+// 「ほかのアプリから共有で開かれたか」を見るのに使っている。素の Node には無い。
+const location = { search: '', pathname: '/', protocol: 'http:' };
+const history = { replaceState: () => {} };
 
 let api;
 try {
   api = new Function(
     'document', 'localStorage', 'getComputedStyle', 'alert', 'confirm', 'window',
+    'location', 'history',
     m[1] + '\nreturn { parseText, occursOn, normalize, eventsOn, ymd, fromYmd, addDays, daysBetween,'
          + ' TODAY, state, typeOf, APP_VERSION, holidaysOf, holidayName, buildICS, icsFold, icsEscape,'
          + ' guessType, spendBetween, yen, shade, nextOshiEvent, alarmsFor };'
-  )(document, localStorage, getComputedStyle, alert, confirm, window);
+  )(document, localStorage, getComputedStyle, alert, confirm, window, location, history);
 } catch (e) {
   console.error('❌ 実行時に例外:', e.message, '\n', e.stack);
   process.exit(1);
