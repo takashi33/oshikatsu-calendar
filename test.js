@@ -61,7 +61,7 @@ try {
     m[1] + '\nreturn { parseText, occursOn, normalize, eventsOn, ymd, fromYmd, addDays, daysBetween,'
          + ' TODAY, state, typeOf, APP_VERSION, holidaysOf, holidayName, buildICS, icsFold, icsEscape,'
          + ' guessType, spendBetween, yen, shade, nextOshiEvent, alarmsFor, sharedTextFromUrl,'
-         + ' trimDecoration, isDecoration };'
+         + ' trimDecoration, isDecoration, postFromHtml, decodeEntities };'
   )(document, localStorage, getComputedStyle, alert, confirm, window, location, history);
 } catch (e) {
   console.error('❌ 実行時に例外:', e.message, '\n', e.stack);
@@ -400,6 +400,55 @@ const onlyDeco = ['╭━━╮', '★2026年12月25日発売★', '╰━━╯
 const od = api.parseText(onlyDeco);
 ok(od.length === 1 && !api.isDecoration(od[0].title), '借りる先が飾りだけでも飾りの題名にしない',
    od[0] && od[0].title);
+
+/* ---------------- 18. ページの中身から投稿本文を取り出す ----------------
+   Xアプリの共有はリンクしか寄越さない。ショートカット側でそのページを取りに行き、
+   中身を丸ごとこちらへ渡している。抜き出しはここが担当する。
+   ⚠️ 下のHTMLは、実際にXから返ってきたものと同じ形（content が先、property が後）。
+      Xがこの形をやめたらここが落ちる。それを検知するための検査でもある。 */
+console.log('\n--- ページの中身から本文を取り出す ---');
+
+const xHtml = '<html><head><meta content="article" property="og:type" />'
+  + '<meta content="https://x.com/identityv_stage/status/2085652180439056671" property="og:url" />'
+  + '<meta content="SixTONES (@foo) on X" property="og:title" />'
+  + '<meta content="【Blu-ray】舞台 Identity V STAGE Episode6\n\n'
+  + '★2026年12月25日(金)発売★\n\n#第五舞台" property="og:description" />'
+  + '</head><body></body></html>';
+
+const post = api.postFromHtml(xHtml);
+console.log('  取り出した本文: ' + JSON.stringify(post));
+ok(post.includes('Identity V'), '本文を取り出せる', post);
+ok(post.includes('2026年12月25日'), '日付を含んだまま取り出せる');
+ok(post.includes('https://x.com/identityv_stage/status/2085652180439056671'),
+   '元投稿のリンクも一緒に持ってくる');
+ok(post.split('\n').length >= 4, '改行が保たれている', String(post.split('\n').length));
+
+// 取り出した本文が、そのまま予定になるところまで通す
+const fromHtml = api.parseText(post);
+ok(fromHtml.length === 1 && fromHtml[0].date === '2026-12-25', 'HTMLから予定を作れる',
+   JSON.stringify(fromHtml));
+ok(fromHtml[0] && fromHtml[0].title.includes('Identity V'), '題名も正しく取れる',
+   fromHtml[0] && fromHtml[0].title);
+
+// HTMLでないものを渡されても、余計なことをしない
+ok(api.postFromHtml('8/15 18:00 開演') === '', '素の文章はそのまま素通しさせる');
+ok(api.postFromHtml('https://x.com/foo/status/1') === '', 'リンクだけなら空を返す');
+ok(api.postFromHtml('<html><head><title>x</title></head></html>') === '',
+   '本文が無いHTMLなら空を返す');
+
+// 実体参照が文字に戻るか
+ok(api.decodeEntities('A&amp;B') === 'A&B', '&amp; が & に戻る');
+ok(api.decodeEntities('&quot;夏フェス&quot;') === '"夏フェス"', '&quot; が引用符に戻る');
+ok(api.decodeEntities('&#39;') === "'", '数値参照が戻る');
+ok(api.decodeEntities('&lt;3') === '<3', '&lt; が戻る');
+// 「&amp;quot;」は「&quot;」という文字列であって、引用符ではない
+ok(api.decodeEntities('&amp;quot;') === '&quot;', '二重にほどきすぎない');
+
+// 取得に失敗して中身が空でも、リンクだけは届いて拾える（ショートカットが両方渡すため）
+const failCase = api.sharedTextFromUrl(
+  'https://takashi33.github.io/oshikatsu-calendar/?text=https://x.com/foo/status/1');
+ok(api.postFromHtml(failCase) === '', '取得に失敗した形でも落ちない');
+ok(failCase === 'https://x.com/foo/status/1', '失敗時はリンクだけが残る');
 
 console.log(ng === 0 ? '\n✅ 全項目パス' : `\n❌ ${ng}件失敗`);
 process.exit(ng === 0 ? 0 : 1);
