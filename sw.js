@@ -6,7 +6,7 @@
  *
  * ⚠️ index.html を更新したら CACHE の版数も上げること。古いキャッシュはその時点で捨てられる。
  */
-const CACHE = 'oshi-cal-4.0.0';
+const CACHE = 'oshi-cal-4.0.1';
 const ASSETS = [
   './',
   './index.html',
@@ -36,7 +36,11 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   if(e.request.method !== 'GET') return;
   e.respondWith(
-    fetch(e.request)
+    // ⚠️ cache:'no-store' が要る。
+    // GitHub Pages は Cache-Control: max-age=600 を返すので、素の fetch だと
+    // ブラウザが10分間ためこんだ古い写しを返し、それをここで保存してしまう。
+    // 「ネットワーク優先」のつもりが、実際には古い画面が出続ける原因になっていた。
+    fetch(e.request, {cache: 'no-store'})
       .then(res => {
         const copy = res.clone();
         caches.open(CACHE).then(c => c.put(e.request, copy)).catch(() => {});

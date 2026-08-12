@@ -707,6 +707,10 @@ textarea{min-height:104px;resize:vertical}
     <h3>設定</h3>
 
     <button class="big-btn" id="set-help">📖 使い方を見る</button>
+    <button class="big-btn" id="set-update">🔄 最新の状態にする</button>
+    <p class="hint" style="margin-top:6px">
+      画面が古いままのときに押してください。<strong>入れた予定は消えません。</strong>
+    </p>
 
     <h4>いつものカレンダーにも出したい</h4>
     <p class="hint" style="margin-top:4px">
@@ -771,7 +775,7 @@ textarea{min-height:104px;resize:vertical}
    ・外部サイトからの自動取得は行わない（理由は knowledge/external-data-fetch.md）
    ========================================================= */
 
-const APP_VERSION = '4.0.0';
+const APP_VERSION = '4.0.1';
 const STORE_KEY = 'oshi-cal-v1';
 const PALETTE = ['#ff7aa8','#7ec8e3','#ffc25c','#9ad6a3','#c39aeb','#ff9f7a','#6fd0c4','#e88fb8'];
 const TYPES = [
@@ -2269,6 +2273,20 @@ function openHelp(){
 }
 document.getElementById('set-help').onclick  = () => { hide('m-set'); openHelp(); };
 document.getElementById('btn-help').onclick  = openHelp;
+
+/* 古い画面が残ってしまったときの逃げ道。
+   ためこまれた写しをすべて捨てて、取り直してから開き直す。
+   予定はブラウザの別の場所（localStorage）にあるので消えない。 */
+document.getElementById('set-update').onclick = async () => {
+  if(!confirm('最新の状態にします。\n入れた予定は消えません。よろしいですか？')) return;
+  try{
+    if('serviceWorker' in navigator){
+      for(const r of await navigator.serviceWorker.getRegistrations()) await r.unregister();
+    }
+    if(window.caches){ for(const k of await caches.keys()) await caches.delete(k); }
+  }catch(e){ /* 使えない環境でも、下の読み直しだけは実行する */ }
+  location.replace(location.pathname + '?v=' + Date.now());
+};
 document.getElementById('sn-help').onclick   = openHelp;
 document.getElementById('help-close').onclick = () => hide('m-help');
 
