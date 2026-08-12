@@ -306,9 +306,10 @@ ok(round.oshis[0].icon === '🐰', '控えを取って戻してもアイコン�
 console.log('\n--- 画面の記憶 ---');
 ok(api.normalize({ mode: 'cal' }).mode === 'cal', 'カレンダー画面が保たれる');
 ok(api.normalize({ mode: 'list' }).mode === 'list', 'これから画面が保たれる');
-ok(api.normalize({}).mode === 'home', '指定がなければホーム');
-ok(api.normalize({ mode: 'そんな画面ない' }).mode === 'home', '知らない値はホームに落とす');
-ok(api.state.mode === 'home', '初回はホームから始まる');
+ok(api.normalize({}).mode === 'cal', '指定がなければカレンダー');
+ok(api.normalize({ mode: 'そんな画面ない' }).mode === 'cal', '知らない値はカレンダーに落とす');
+ok(api.state.mode === 'cal', '初回はカレンダーから始まる');
+ok(api.normalize({ mode: 'home' }).mode === 'home', 'ホームを選んでいれば覚えている');
 
 console.log(ng === 0 ? '\n✅ 全項目パス' : `\n❌ ${ng}件失敗`);
 process.exit(ng === 0 ? 0 : 1);

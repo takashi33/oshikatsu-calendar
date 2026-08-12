@@ -232,11 +232,17 @@ header{
 /* 繰り返しの予定は「いつもの用事」なので控えめに出す。
    毎日配信のような予定が全日を埋めると、一度きりの予定が埋もれてしまうため。 */
 .ev.rep{opacity:.5}
+
+/* その日に誰の予定が入っているかを、顔（アイコン）で示す。
+   色の帯だけでは誰のものか分からない、という指摘への対応。 */
+.who-row{display:flex;flex-wrap:wrap;gap:2px;align-content:flex-start;padding-left:1px}
+.who-row .ava{box-shadow:0 0 0 1px rgba(255,255,255,.55)}
+.who-row .ava.rep{opacity:.45}
+.who-row .plus{font-size:9px;color:var(--sub);line-height:14px}
+
 @media (max-width:479px){
-  .cell{min-height:62px}
-  .ev{font-size:0;padding:0;height:5px;border-radius:3px}
-  .ev.mine{opacity:.85}
-  .ev.rep{height:3px;opacity:.55}
+  .cell{min-height:70px}
+  .ev{display:none}          /* 狭い画面ではタイトルを出さず、誰かだけを見せる */
 }
 
 /* ---------- 選択日パネル / これから ---------- */
@@ -421,8 +427,8 @@ textarea{min-height:104px;resize:vertical}
       </span>
     </p>
     <div class="tabs" role="tablist">
-      <button id="tab-home" class="on" role="tab">ホーム</button>
-      <button id="tab-cal" role="tab">カレンダー</button>
+      <button id="tab-cal" class="on" role="tab">カレンダー</button>
+      <button id="tab-home" role="tab">ホーム</button>
       <button id="tab-list" role="tab">これから</button>
     </div>
     <div class="monthbar" id="monthbar">
@@ -765,7 +771,7 @@ textarea{min-height:104px;resize:vertical}
    ・外部サイトからの自動取得は行わない（理由は knowledge/external-data-fetch.md）
    ========================================================= */
 
-const APP_VERSION = '3.9.1';
+const APP_VERSION = '4.0.0';
 const STORE_KEY = 'oshi-cal-v1';
 const PALETTE = ['#ff7aa8','#7ec8e3','#ffc25c','#9ad6a3','#c39aeb','#ff9f7a','#6fd0c4','#e88fb8'];
 const TYPES = [
@@ -913,8 +919,9 @@ function normalize(o){
     // 前回どの推し・どの種類で追加したかを覚えておく。毎回選び直すのが煩わしいため
     lastOwner: String(d.lastOwner || ''),
     lastType: String(d.lastType || ''),
-    // 開いていた画面。覚えていないと、指で下に引いて更新するたびにホームへ戻ってしまう
-    mode: ['home','cal','list'].includes(d.mode) ? d.mode : 'home'
+    // 開いていた画面。覚えていないと、指で下に引いて更新するたびに最初の画面へ戻ってしまう。
+    // 既定はカレンダー（このアプリの主役）
+    mode: ['home','cal','list'].includes(d.mode) ? d.mode : 'cal'
   };
 }
 
@@ -942,7 +949,8 @@ function seed(){
     hidden:[],
     showRepeats:false,
     isSample:true,
-    helpSeen:false
+    helpSeen:false,
+    mode:'cal'
   };
 }
 
@@ -1365,6 +1373,30 @@ function renderGrid(){
     const dn = document.createElement('span');
     dn.className = 'dnum'; dn.textContent = String(d.getDate());
     cell.appendChild(dn);
+
+    // その日に予定が入っている人を、顔（アイコン）で並べる。
+    // 一度きりの予定の人を先に、繰り返しだけの人はうすく出す。
+    // 毎日配信のような予定が全員ぶん濃く出ると、特別な日が埋もれてしまうため。
+    const onceIds = [...new Set(list.filter(e => !e.repeat).map(e => e.ownerId))];
+    const repIds  = [...new Set(list.filter(e => e.repeat).map(e => e.ownerId))]
+                      .filter(id => !onceIds.includes(id));
+    if(onceIds.length || repIds.length){
+      const row = document.createElement('div');
+      row.className = 'who-row';
+      const shownIds = [...onceIds, ...repIds].slice(0, 4);
+      shownIds.forEach(id => {
+        const a = avatar(ownerOf(id), 14);
+        if(!onceIds.includes(id)) a.classList.add('rep');
+        row.appendChild(a);
+      });
+      const rest = onceIds.length + repIds.length - shownIds.length;
+      if(rest > 0){
+        const p = document.createElement('span');
+        p.className = 'plus'; p.textContent = `+${rest}`;
+        row.appendChild(p);
+      }
+      cell.appendChild(row);
+    }
 
     list.slice(0,3).forEach(e => {
       const chip = document.createElement('div');
