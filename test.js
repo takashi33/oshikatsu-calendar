@@ -60,7 +60,8 @@ try {
     'location', 'history',
     m[1] + '\nreturn { parseText, occursOn, normalize, eventsOn, ymd, fromYmd, addDays, daysBetween,'
          + ' TODAY, state, typeOf, APP_VERSION, holidaysOf, holidayName, buildICS, icsFold, icsEscape,'
-         + ' guessType, spendBetween, yen, shade, nextOshiEvent, alarmsFor, sharedTextFromUrl };'
+         + ' guessType, spendBetween, yen, shade, nextOshiEvent, alarmsFor, sharedTextFromUrl,'
+         + ' trimDecoration, isDecoration };'
   )(document, localStorage, getComputedStyle, alert, confirm, window, location, history);
 } catch (e) {
   console.error('❌ 実行時に例外:', e.message, '\n', e.stack);
@@ -351,6 +352,54 @@ const shared = S(BASE + '?text=8/15(金) 18:00 開演　夏フェス2026 出演 
 const sharedGot = api.parseText(shared);
 ok(sharedGot.length === 1 && sharedGot[0].date === '2026-08-15' && sharedGot[0].time === '18:00',
    '共有された文章から予定を作れる', JSON.stringify(sharedGot));
+
+/* ---------------- 17. 飾りだらけの告知文 ----------------
+   SNSの告知は「★」「╭━━╮」「▼」「📢」の飾りが多い。飾りをそのまま題名にすると
+   「★ ★」のような中身のない予定ができる。実際にXの投稿でこれが起きた。 */
+console.log('\n--- 飾りだらけの告知文 ---');
+ok(api.isDecoration('★ ★') === true, '記号だけは飾りと判定する');
+ok(api.isDecoration('╭━━━━━╮') === true, '罫線だけは飾りと判定する');
+ok(api.isDecoration('📢✨🎵') === true, '絵文字だけは飾りと判定する');
+ok(api.isDecoration('発売') === false, '日本語があれば飾りではない');
+ok(api.isDecoration('Blu-ray') === false, '英字があれば飾りではない');
+
+ok(api.trimDecoration('★ 発売 ★') === '発売', '前後の記号を落とす');
+ok(api.trimDecoration('📢 ご予約受付中 ✨') === 'ご予約受付中', '前後の絵文字を落とす');
+ok(api.trimDecoration('【Blu-ray】舞台') === '【Blu-ray】舞台', '括弧は中身なので残す');
+ok(api.trimDecoration('ライブ告知') === 'ライブ告知', '飾りが無ければそのまま');
+
+// 実際にXから取り出した本文（いただいたURLの投稿）
+const xPost = [
+  '╭━━━━━╮ 　 　 　',
+  '　CM解禁🎵',
+  '╰━━━━━╯',
+  '',
+  '【Blu-ray】舞台 Identity V STAGE Episode6 『The Abyss of Art』',
+  '',
+  '★2026年12月25日(金)発売★  ',
+  '',
+  '📢Ep7のシリアル先行抽選申込券が封入！',
+  '',
+  '▼ご予約受付中 ',
+  'https://t.co/As71cPddIm',
+  '',
+  '#第五舞台 #第五人格',
+].join('\n');
+
+const xGot = api.parseText(xPost);
+console.log('  読み取り: ' + JSON.stringify(xGot.map(c => [c.date, c.type, c.title])));
+ok(xGot.length === 1, 'Xの告知から1件だけ拾う', String(xGot.length));
+ok(xGot[0] && xGot[0].date === '2026-12-25', '発売日を拾う', xGot[0] && xGot[0].date);
+ok(xGot[0] && xGot[0].type === 'release', '「発売」を💿発売として扱う', xGot[0] && xGot[0].type);
+// ここが今回の修正の的。以前は「★ ★」になっていた
+ok(xGot[0] && !api.isDecoration(xGot[0].title), '題名が飾りだけになっていない', xGot[0] && xGot[0].title);
+ok(xGot[0] && xGot[0].title.includes('Identity V'), '題名を近くの行から借りている', xGot[0] && xGot[0].title);
+
+// 飾り行しか近くに無いときは、無理に借りず「未設定」に落ちる
+const onlyDeco = ['╭━━╮', '★2026年12月25日発売★', '╰━━╯'].join('\n');
+const od = api.parseText(onlyDeco);
+ok(od.length === 1 && !api.isDecoration(od[0].title), '借りる先が飾りだけでも飾りの題名にしない',
+   od[0] && od[0].title);
 
 console.log(ng === 0 ? '\n✅ 全項目パス' : `\n❌ ${ng}件失敗`);
 process.exit(ng === 0 ? 0 : 1);

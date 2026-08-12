@@ -780,7 +780,7 @@ textarea{min-height:104px;resize:vertical}
    ・外部サイトからの自動取得は行わない（理由は knowledge/external-data-fetch.md）
    ========================================================= */
 
-const APP_VERSION = '4.1.0';
+const APP_VERSION = '4.2.0';
 const STORE_KEY = 'oshi-cal-v1';
 const PALETTE = ['#ff7aa8','#7ec8e3','#ffc25c','#9ad6a3','#c39aeb','#ff9f7a','#6fd0c4','#e88fb8'];
 const TYPES = [
@@ -1944,19 +1944,49 @@ function findTime(line){
   return hh <= 23 ? `${pad(hh)}:${m[2] || '00'}` : '';
 }
 
+/* 「中身のある文字」＝ 数字・英字・かな・漢字。ひとつも無ければ飾りとみなす。
+   SNSの告知は「★」「╭━━━╮」「▼」「📢」のような飾りの行が多く、素直に題名にすると
+   「★ ★」のような中身のない題になってしまう。実際にXの投稿で起きた。 */
+const WORDY = /[\dA-Za-z぀-ヿ㐀-鿿０-９Ａ-Ｚａ-ｚ]/;
+function isDecoration(s){ return !WORDY.test(s); }
+
+/* 前後にくっついた飾りだけを落とす。「★ 発売 ★」→「発売」
+   括弧は中身の一部なので残す（「【Blu-ray】舞台…」の【】を削らない）。
+   絵文字は2文字ぶんの長さを持つので、[...s] で1文字ずつに割ってから見る。 */
+function trimDecoration(s){
+  const ch = [...s];
+  const keepL = '【『「（(〈《[', keepR = '】』」）)〉》]';
+  let a = 0, b = ch.length;
+  while(a < b && !WORDY.test(ch[a])     && !keepL.includes(ch[a]))     a++;
+  while(b > a && !WORDY.test(ch[b - 1]) && !keepR.includes(ch[b - 1])) b--;
+  return ch.slice(a, b).join('').trim();
+}
+
 /* 日付だけの行のために、近くの行から見出しを借りる。
    告知文は「日付 → 会場・演目」の順が多いので後ろを先に見る。
    別の日付を持つ行に当たったら、そこは別の予定なので借りない。 */
 function borrowTitle(lines, idx){
-  for(const step of [1, -1]){
+  const pick = step => {
     for(let k = idx + step; k >= 0 && k < lines.length && Math.abs(k - idx) <= 3; k += step){
-      const s = lines[k].trim();
-      if(s.length < 2) continue;
-      if(findDate(s)) break;
+      const s = trimDecoration(lines[k].trim());
+      if(s.length < 2 || isDecoration(s)) continue;   // 「╰━━━╯」のような飾りの行は借りない
+      if(findDate(s)) return '';                      // 別の予定の行。そこから先は借りない
       return s;
     }
-  }
-  return '';
+    return '';
+  };
+  const after = pick(1), before = pick(-1);
+  if(!after)  return before;
+  if(!before) return after;
+
+  /* 既定は後ろ（「日付 → 会場・演目」の告知文が多いため）。
+     ただしSNSの投稿は「演目名 → 日付 → 補足」の順が普通で、後ろを採ると
+     「📢◯◯券が封入！」のような補足を題名にしてしまう。
+     演目名は【】『』で囲まれることが多く、補足より明らかに長い。それを手掛かりに前を採る。 */
+  const titleish = s => /[【『「\[]/.test(s);
+  if(titleish(after)) return after;
+  if(titleish(before) || before.length >= after.length * 1.5) return before;
+  return after;
 }
 
 /* 文章から日付らしい箇所を拾う */
@@ -1987,7 +2017,9 @@ function parseText(text){
       .replace(/[〜～\-–—]/g, ' ')
       .replace(/(開場|開演|発売|配信|開始|スタート)/g, ' ')
       .replace(/\s+/g, ' ').trim();
-    if(title.length < 2) title = borrowTitle(lines, idx);
+    title = trimDecoration(title);
+    // 飾りしか残らなかった行（「★12月25日発売★」→「★ ★」）は、題名を近くの行から借りる
+    if(title.length < 2 || isDecoration(title)) title = borrowTitle(lines, idx);
     if(!title) title = '（タイトル未設定）';
 
     // 種類は、確定したタイトルも含めて推測する
@@ -2394,6 +2426,24 @@ const SHORTCUT_URL = '';
   if(!shared) return;
   // 再読み込みで二度開かないよう、URLから消しておく
   history.replaceState(null, '', location.pathname);
+
+  /* Xアプリの共有は、投稿の本文ではなくリンクだけを寄越すことがある。
+     その場合は日付が拾えないので、取り込み画面を開いても「見つかりません」で終わってしまう。
+     空振りで終わらせず、リンクをメモに入れた「予定を追加」を開いて、
+     日にちとタイトルだけ足せば保存できる状態で渡す。 */
+  if(parseText(shared).length === 0){
+    const link = (shared.match(/https?:\/\/\S+/) || [])[0];
+    if(link){
+      openEvent(null);
+      // リンク以外に文章があれば、題名の下書きにしておく
+      const lead = shared.split(/\r?\n/).map(s => trimDecoration(s.trim()))
+        .find(s => s && !isDecoration(s) && !/^https?:\/\//.test(s));
+      if(lead) document.getElementById('ev-title').value = lead.slice(0, 60);
+      document.getElementById('ev-memo').value = link;
+      setMore(true);              // メモが見えるように詳細欄を開いておく
+      return;
+    }
+  }
   openPaste(shared);
 })();
 
