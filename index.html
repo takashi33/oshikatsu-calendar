@@ -822,7 +822,7 @@ textarea{min-height:104px;resize:vertical}
    ・外部サイトからの自動取得は行わない（理由は knowledge/external-data-fetch.md）
    ========================================================= */
 
-const APP_VERSION = '4.5.0';
+const APP_VERSION = '4.6.0';
 const STORE_KEY = 'oshi-cal-v1';
 const PALETTE = ['#ff7aa8','#7ec8e3','#ffc25c','#9ad6a3','#c39aeb','#ff9f7a','#6fd0c4','#e88fb8'];
 const TYPES = [
@@ -2596,8 +2596,9 @@ const SHORTCUT_URL = '';
   // 再読み込みで二度開かないよう、URLから消しておく
   history.replaceState(null, '', location.pathname);
 
-  // ページの中身が丸ごと渡されていたら、投稿本文だけを取り出す
-  const shared = postFromHtml(raw) || raw;
+  // ページの中身が丸ごと渡されていたら、投稿本文だけを取り出す。
+  // oEmbed（JSON）が本命。HTMLのほうは、古い作りのショートカットが残っていても動くように残してある
+  const shared = postFromOEmbed(raw) || postFromHtml(raw) || raw;
 
   /* Xアプリの共有は、投稿の本文ではなくリンクだけを寄越すことがある。
      その場合は日付が拾えないので、取り込み画面を開いても「見つかりません」で終わってしまう。
@@ -2644,6 +2645,31 @@ function decodeEntities(s){
           .replace(/&lt;/g, '<').replace(/&gt;/g, '>')
           .replace(/&nbsp;/g, ' ')
           .replace(/&amp;/g, '&');
+}
+
+/* Xの「oEmbed」から返るJSONを渡されたとき、そこから投稿の本文を取り出す。該当が無ければ空。
+
+   ⚠️ ページのHTMLを取りに行く方式は、iOSのショートカットでは行き止まりだった。
+      返ってくるのが「ファイル」扱いになり、文字に直そうとすると
+      「見える文字」を拾う処理が走る。Xのページは本文が <head> のプレビュー用データにあり、
+      見える部分は空なので、結果も空になる。
+      oEmbed は JSON で返るためファイル扱いにならず、ショートカット側の変換が要らない。 */
+function postFromOEmbed(s){
+  if(!/"html"\s*:/.test(s)) return '';
+  let d;
+  try { d = JSON.parse(s); } catch(e){ return ''; }
+  if(!d || typeof d.html !== 'string') return '';
+
+  /* 本文は最初の <p>…</p> の中だけを採る。
+     そのあとに続く「— 著者名 (@id) 2026年12月25日」には投稿日が入っており、
+     混ぜると告知と関係のない日付まで予定にしてしまう。 */
+  const m = d.html.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
+  if(!m) return '';
+  const text = decodeEntities(
+      m[1].replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '')
+    ).replace(/[ \t]+$/gm, '').trim();
+  if(!text) return '';
+  return typeof d.url === 'string' && d.url ? text + '\n' + d.url : text;
 }
 
 /* ページの中身（HTML）を渡されたとき、そこから投稿の本文を取り出す。該当が無ければ空。

@@ -61,7 +61,7 @@ try {
     m[1] + '\nreturn { parseText, occursOn, normalize, eventsOn, ymd, fromYmd, addDays, daysBetween,'
          + ' TODAY, state, typeOf, APP_VERSION, holidaysOf, holidayName, buildICS, icsFold, icsEscape,'
          + ' guessType, spendBetween, yen, shade, nextOshiEvent, alarmsFor, sharedTextFromUrl,'
-         + ' trimDecoration, isDecoration, postFromHtml, decodeEntities,'
+         + ' trimDecoration, isDecoration, postFromHtml, postFromOEmbed, decodeEntities,'
          + ' backupNeed, backupLabel, BACKUP_DAYS, SNOOZE_DAYS,'
          + ' markUndo, undo, hideUndo, getState: () => state };'
   )(document, localStorage, getComputedStyle, alert, confirm, window, location, history);
@@ -431,6 +431,46 @@ ok(fromHtml.length === 1 && fromHtml[0].date === '2026-12-25', 'HTMLから予定
    JSON.stringify(fromHtml));
 ok(fromHtml[0] && fromHtml[0].title.includes('Identity V'), '題名も正しく取れる',
    fromHtml[0] && fromHtml[0].title);
+
+/* --- Xの oEmbed（JSON）から取り出す。iOSのショートカットではこちらが本命。
+   ページのHTMLを取る方式は、iOSでは「ファイル」扱いになって文字に直せず行き止まりだった。
+   ⚠️ 下のJSONは実際に publish.x.com が返す形。Xがこの形をやめたらここが落ちる。 */
+console.log('\n--- oEmbed（JSON）から本文を取り出す ---');
+const oe = JSON.stringify({
+  url: 'https://x.com/identityV_stage/status/2085652180439056671',
+  author_name: 'Identity V STAGE / 舞台 第五人格',
+  html: '<blockquote class="twitter-tweet"><p lang="ja" dir="ltr">╭━━╮<br>　CM解禁🎵<br>╰━━╯<br><br>'
+      + '【Blu-ray】舞台 Identity V STAGE Episode6<br><br>★2026年12月25日(金)発売★  <br><br>'
+      + '<a href="https://t.co/x">https://t.co/x</a><a href="https://x.com/hashtag/a?src=hash&amp;ref_src=tw">#第五舞台</a>'
+      + '</p>&mdash; Identity V STAGE (@identityV_stage) '
+      + '<a href="https://x.com/i/status/2085652180439056671">2026年8月1日</a></blockquote>'
+});
+
+const oePost = api.postFromOEmbed(oe);
+console.log('  取り出した本文: ' + JSON.stringify(oePost));
+ok(oePost.includes('Identity V STAGE Episode6'), '本文を取り出せる', oePost);
+ok(oePost.includes('2026年12月25日'), '告知の日付を含む');
+ok(oePost.split('\n').length >= 6, '<br> が改行になっている', String(oePost.split('\n').length));
+ok(!oePost.includes('<'), 'タグが残っていない', oePost);
+ok(oePost.includes('#第五舞台'), 'ハッシュタグは文字として残る');
+ok(oePost.includes('https://x.com/identityV_stage/status/2085652180439056671'), '元投稿のリンクが付く');
+// ★ここが要。<p> の外にある「投稿した日」を本文に混ぜると、告知と無関係な予定ができる
+ok(!oePost.includes('2026年8月1日'), '投稿日（著者行）を本文に混ぜない', oePost);
+
+const oeGot = api.parseText(oePost);
+ok(oeGot.length === 1, '予定は1件だけできる（投稿日で増えない）', JSON.stringify(oeGot));
+ok(oeGot[0] && oeGot[0].date === '2026-12-25', '発売日を拾う', oeGot[0] && oeGot[0].date);
+
+// エンコードされずに素で届いても読めるか（ショートカットが素通しする場合）
+const rawHref = 'https://takashi33.github.io/oshikatsu-calendar/?text=' + oe;
+ok(api.postFromOEmbed(api.sharedTextFromUrl(rawHref)).includes('Episode6'),
+   '素のJSONがURLに載っても読める');
+
+// oEmbed でないものに反応しない
+ok(api.postFromOEmbed('{"foo":1}') === '', '関係ないJSONには反応しない');
+ok(api.postFromOEmbed('{"html":') === '', '壊れたJSONで落ちない');
+ok(api.postFromOEmbed('{"html":"<blockquote>本文なし</blockquote>"}') === '', '本文が無ければ空を返す');
+ok(api.postFromOEmbed('8/15 開演') === '', '素の文章には反応しない');
 
 // HTMLでないものを渡されても、余計なことをしない
 ok(api.postFromHtml('8/15 18:00 開演') === '', '素の文章はそのまま素通しさせる');
