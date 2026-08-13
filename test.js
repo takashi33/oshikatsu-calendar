@@ -61,7 +61,9 @@ try {
     m[1] + '\nreturn { parseText, occursOn, normalize, eventsOn, ymd, fromYmd, addDays, daysBetween,'
          + ' TODAY, state, typeOf, APP_VERSION, holidaysOf, holidayName, buildICS, icsFold, icsEscape,'
          + ' guessType, spendBetween, yen, shade, nextOshiEvent, alarmsFor, sharedTextFromUrl,'
-         + ' trimDecoration, isDecoration, postFromHtml, decodeEntities };'
+         + ' trimDecoration, isDecoration, postFromHtml, decodeEntities,'
+         + ' backupNeed, backupLabel, BACKUP_DAYS, SNOOZE_DAYS,'
+         + ' markUndo, undo, hideUndo, getState: () => state };'
   )(document, localStorage, getComputedStyle, alert, confirm, window, location, history);
 } catch (e) {
   console.error('❌ 実行時に例外:', e.message, '\n', e.stack);
@@ -449,6 +451,126 @@ const failCase = api.sharedTextFromUrl(
   'https://takashi33.github.io/oshikatsu-calendar/?text=https://x.com/foo/status/1');
 ok(api.postFromHtml(failCase) === '', '取得に失敗した形でも落ちない');
 ok(failCase === 'https://x.com/foo/status/1', '失敗時はリンクだけが残る');
+
+/* ---------------- 19. 控え（バックアップ）の催促 ----------------
+   予定はこのスマホの中にしかない。控えが無いまま端末が壊れると全部消える。
+   ⚠️ 「守るものがある人にだけ、しつこすぎない頻度で」出ること。
+      出しすぎれば無視されるし、出さなければ気づけない。両方の失敗を検査する。 */
+console.log('\n--- 控えの催促 ---');
+
+const S0 = JSON.parse(JSON.stringify(api.state));          // 元の状態を控えておく
+const setState = o => Object.assign(api.state, S0, o);
+const ago = n => api.addDays(api.TODAY, -n);
+
+// 守るものが無い人には出さない
+setState({isSample:true, events:[{id:'a',date:api.TODAY,title:'x'}], lastBackup:'', backupSnooze:''});
+ok(api.backupNeed() === '', '見本のままの人には出さない');
+setState({isSample:false, events:[], lastBackup:'', backupSnooze:''});
+ok(api.backupNeed() === '', '予定が1件も無ければ出さない');
+
+// 一度も取っていない人には出す
+setState({isSample:false, events:[{id:'a',date:api.TODAY,title:'x'}], lastBackup:'', backupSnooze:''});
+ok(api.backupNeed() !== '', '予定があって控えが無ければ出す');
+ok(api.backupNeed().includes('1件'), '件数を伝える', api.backupNeed());
+
+// 取った直後は黙る
+setState({isSample:false, events:[{id:'a',date:api.TODAY,title:'x'}], lastBackup:api.TODAY});
+ok(api.backupNeed() === '', '今日取ったばかりなら出さない');
+setState({isSample:false, events:[{id:'a',date:api.TODAY,title:'x'}],
+          lastBackup:ago(api.BACKUP_DAYS - 1)});
+ok(api.backupNeed() === '', '期限の前日はまだ出さない');
+
+// 間が空いたら出す
+setState({isSample:false, events:[{id:'a',date:api.TODAY,title:'x'}],
+          lastBackup:ago(api.BACKUP_DAYS)});
+ok(api.backupNeed() !== '', `${api.BACKUP_DAYS}日たったら出す`);
+ok(api.backupNeed().includes(String(api.BACKUP_DAYS)), '何日たったかを伝える', api.backupNeed());
+
+// 「あとで」を押されたら、しばらく黙る
+setState({isSample:false, events:[{id:'a',date:api.TODAY,title:'x'}],
+          lastBackup:'', backupSnooze:api.TODAY});
+ok(api.backupNeed() === '', '「あとで」の直後は黙る');
+setState({isSample:false, events:[{id:'a',date:api.TODAY,title:'x'}],
+          lastBackup:'', backupSnooze:ago(api.SNOOZE_DAYS - 1)});
+ok(api.backupNeed() === '', '「あとで」から日が浅いうちは黙る');
+setState({isSample:false, events:[{id:'a',date:api.TODAY,title:'x'}],
+          lastBackup:'', backupSnooze:ago(api.SNOOZE_DAYS)});
+ok(api.backupNeed() !== '', '「あとで」から日が空けば、また出す');
+
+// 設定画面の表示
+setState({lastBackup:''});
+ok(api.backupLabel().includes('まだ一度も'), '未実施だと分かる文言を出す', api.backupLabel());
+setState({lastBackup:api.TODAY});
+ok(api.backupLabel().includes('今日'), '今日取ったと分かる', api.backupLabel());
+setState({lastBackup:ago(1)});
+ok(api.backupLabel().includes('きのう'), 'きのうと分かる', api.backupLabel());
+setState({lastBackup:ago(45)});
+ok(api.backupLabel().includes('45日前'), '何日前かが分かる', api.backupLabel());
+
+// 控えの日付が、書き出し・読み込みで往復するか（往復しないと催促が毎回リセットされる）
+const bk = api.normalize({lastBackup:'2026-08-01', backupSnooze:'2026-08-05'});
+ok(bk.lastBackup === '2026-08-01', '控えた日が保たれる');
+ok(bk.backupSnooze === '2026-08-05', '「あとで」の日が保たれる');
+ok(api.normalize({}).lastBackup === '', '未設定は空文字');
+ok(api.normalize({lastBackup:12345}).lastBackup === '12345', '文字列以外でも落ちない');
+
+Object.assign(api.state, S0);                              // 元に戻す
+
+/* ---------------- 20. 取り消し（消したあとの戻り道） ----------------
+   「元に戻せません」と断っても事故は防げない。押し間違いは確認画面を素通りして起きる。
+   ⚠️ undo() は state を作り直す。以降は api.getState() で見ること
+      （api.state は作り直す前の古いほうを指したままになる）。 */
+console.log('\n--- 取り消し ---');
+
+api.hideUndo();
+ok(api.undo() === false, '控えが無いときは何も起きない');
+
+// 予定をまるごと消して、戻す
+const before = api.getState();
+const beforeCount = before.events.length;
+ok(beforeCount > 0, '検査に使う予定がある', String(beforeCount));
+
+api.markUndo('予定を削除しました');
+before.events = [];
+ok(api.getState().events.length === 0, '消えた状態を作れた');
+ok(api.undo() === true, '取り消しが成立する');
+ok(api.getState().events.length === beforeCount, '消した予定がすべて戻る',
+   String(api.getState().events.length));
+
+// 一度使った控えは、二度は使えない（同じ操作を二重に巻き戻さない）
+ok(api.undo() === false, '取り消しは1回だけ効く');
+
+// 推しを消すと予定と hidden も動く。まとめて戻るか
+const st = api.getState();
+st.oshis  = [{id:'o1', name:'推しA', color:'#ff7aa8', icon:''},
+             {id:'o2', name:'推しB', color:'#7ec8e3', icon:''}];
+st.events = [{id:'e1', date:api.TODAY, title:'A の予定', ownerId:'o1', type:'live'},
+             {id:'e2', date:api.TODAY, title:'B の予定', ownerId:'o2', type:'live'}];
+st.hidden = ['o2'];
+
+api.markUndo('「推しB」と予定1件を削除しました');
+const s2 = api.getState();
+s2.oshis  = s2.oshis.filter(o => o.id !== 'o2');
+s2.events = s2.events.filter(e => e.ownerId !== 'o2');
+s2.hidden = s2.hidden.filter(h => h !== 'o2');
+ok(api.getState().oshis.length === 1, '推しが消えた状態を作れた');
+
+api.undo();
+const r = api.getState();
+ok(r.oshis.length === 2,  '推しが戻る',            String(r.oshis.length));
+ok(r.events.length === 2, 'その推しの予定も戻る',  String(r.events.length));
+ok(r.hidden.includes('o2'), '隠していた設定も戻る', JSON.stringify(r.hidden));
+
+// 「取り消せる状態」を捨てられるか（画面を閉じたら戻せなくする）
+api.markUndo('何かを削除しました');
+api.hideUndo();
+ok(api.undo() === false, '控えを捨てたあとは戻せない');
+
+// 戻した中身は normalize を通る（壊れた控えで落ちない）
+api.markUndo('x');
+Object.assign(api.getState(), {oshis:[], events:[], hidden:[]});
+ok(api.undo() === true, '取り消しできる');
+ok(Array.isArray(api.getState().events), '戻したあとも形が整っている');
 
 console.log(ng === 0 ? '\n✅ 全項目パス' : `\n❌ ${ng}件失敗`);
 process.exit(ng === 0 ? 0 : 1);

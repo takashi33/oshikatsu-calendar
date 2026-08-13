@@ -317,6 +317,22 @@ header{
 /* 本体のスクロールを止めている間の目印。位置は JS が覚えて元に戻す */
 body.locked{position:fixed;width:100%;overflow:hidden}
 @media (min-width:560px){ .mask{align-items:center} .sheet{border-radius:18px} }
+
+/* 消してしまったときの戻り道。画面の中央に出し、選ぶまで消えない。
+   時間で消える作りはやめた。読み終える前に消えると、戻す手段ごと消える。
+   シート（z-index:40）より手前に置く。削除はシートを閉じた直後に起きるが、
+   推しの削除だけはシートを開いたまま起きるため、隠れてしまうと戻れない。 */
+.undo-mask{
+  position:fixed; inset:0; z-index:60;
+  background:rgba(30,20,28,.5); display:flex; align-items:center; justify-content:center; padding:20px;
+}
+.undo-panel{
+  background:var(--panel); border-radius:16px; padding:20px 18px;
+  width:100%; max-width:340px; box-shadow:var(--shadow); text-align:center;
+}
+.undo-panel p{margin:0 0 4px; font-size:15px; font-weight:600; line-height:1.6}
+.undo-panel .undo-sub{margin:0; font-size:12px; color:var(--sub); font-weight:400; line-height:1.7}
+.undo-panel .actions{margin-top:18px}
 .sheet h3{margin:0 0 14px;font-size:16px}
 .sheet h4{margin:20px 0 0;font-size:13px}
 label{display:block;font-size:12px;color:var(--sub);margin:12px 0 5px}
@@ -461,6 +477,16 @@ textarea{min-height:104px;resize:vertical}
       </div>
       <div class="sn-act" style="margin-top:8px">
         <button id="sn-help">📖 使い方を見る</button>
+      </div>
+    </div>
+
+    <!-- 予定はこのスマホの中にしかない。控えが無いまま端末が壊れる・ブラウザのデータを
+         消される、で全部消える。気づける場所が他に無いので、ホームの先頭で知らせる。 -->
+    <div class="sample-note" id="backup-note" hidden>
+      <span id="backup-msg"></span>
+      <div class="sn-act">
+        <button class="primary" id="backup-now">🛟 いま控えを取る</button>
+        <button id="backup-later">あとで</button>
       </div>
     </div>
 
@@ -745,8 +771,10 @@ textarea{min-height:104px;resize:vertical}
     </div>
     <input type="file" id="set-file" accept="application/json,.json" hidden>
     <p class="hint">
-      控えは1つのファイルとして保存されます。<strong>メールで自分に送っておく</strong>か、
-      クラウドに置いておくと、新しいスマホでも「↩️ 控えから元に戻す」で元どおりにできます。
+      「控えを取る」を押すと<strong>送り先を選ぶ画面</strong>が出ます。<strong>iCloud Driveやメール、LINEなど、
+      このスマホの外に置いてください。</strong>スマホの中に置いたままだと、スマホごと無くなったときに一緒に消えます。
+      新しいスマホでは「↩️ 控えから元に戻す」でそのファイルを選べば元どおりです。<br>
+      <span id="set-backup"></span>
     </p>
 
     <h4>このアプリについて</h4>
@@ -760,11 +788,25 @@ textarea{min-height:104px;resize:vertical}
       <button id="set-reset">推しも予定も、すべて消す</button>
     </div>
     <p class="hint">
-      <strong>元に戻せません。</strong>消したくないものがあるときは、先に上の「🛟 いまの予定の控えを取る」を押してください。
+押すとすぐ消えますが、そのあと<strong>「取り消す」を選べば元に戻せます。</strong>
+      ただし<strong>「削除」を選んだあとや、画面を読み込み直したあとは、もう戻せません。</strong>
+      消したくないものがあるときは、先に上の「🛟 いまの予定の控えを取る」を押してください。
     </p>
 
     <div class="actions">
       <button class="primary" id="set-close">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- 消したあとの戻り道。画面の中央に出て、どちらかを選ぶまで消えない -->
+<div class="undo-mask" id="undobar" hidden>
+  <div class="undo-panel">
+    <p id="undo-msg"></p>
+    <p class="undo-sub">まちがえて押したときは「取り消す」で元に戻せます。</p>
+    <div class="actions">
+      <button id="undo-keep">削除</button>
+      <button class="primary" id="undo-do">取り消す</button>
     </div>
   </div>
 </div>
@@ -780,7 +822,7 @@ textarea{min-height:104px;resize:vertical}
    ・外部サイトからの自動取得は行わない（理由は knowledge/external-data-fetch.md）
    ========================================================= */
 
-const APP_VERSION = '4.3.0';
+const APP_VERSION = '4.5.0';
 const STORE_KEY = 'oshi-cal-v1';
 const PALETTE = ['#ff7aa8','#7ec8e3','#ffc25c','#9ad6a3','#c39aeb','#ff9f7a','#6fd0c4','#e88fb8'];
 const TYPES = [
@@ -900,6 +942,43 @@ function save(){
   }
 }
 
+/* ---------- 取り消し（消したあとの戻り道） ----------
+   このアプリは「元に戻せません」と断ってから消す作りだったが、
+   断り書きは事故を防がない。押し間違いは確認画面を素通りして起きる。
+   消す直前の状態をまるごと控えておき、しばらくのあいだ戻れるようにする。
+
+   ⚠️ 時間で閉じない。読み終える前に消えると、戻す手段ごと消えてしまう。
+      「削除」か「取り消す」を選ぶまで出したままにする。
+      これが確認も兼ねるので、消す前の「削除しますか？」は出さない（二度尋ねないため）。
+   ⚠️ 控えは画面を閉じるまでの一時的なもの。保存はしない。
+      再読み込み後にうっかり戻して、そのあとの入力を巻き戻す事故を避けるため。
+   ⚠️ 部分的にではなく state 全体を控える。推しを消すと予定も hidden も動くので、
+      消したものだけを覚えると戻し漏れる。 */
+let undoKeep = null;
+
+/* 消す直前に呼ぶ。
+   label   … 何をしたか（例：「『写真集 発売』を削除しました」）
+   keepBtn … そのままにする側のボタンの文言。操作に合わせて変える
+             （読み込みなのに「削除」と書いてあると意味が通らない） */
+function markUndo(label, keepBtn){
+  undoKeep = JSON.stringify(state);
+  document.getElementById('undo-msg').textContent = label;
+  document.getElementById('undo-keep').textContent = keepBtn || '削除';
+  document.getElementById('undobar').hidden = false;
+}
+function hideUndo(){
+  undoKeep = null;
+  const bar = document.getElementById('undobar');
+  if(bar) bar.hidden = true;
+}
+function undo(){
+  if(!undoKeep) return false;
+  state = normalize(JSON.parse(undoKeep));
+  hideUndo();
+  save();
+  return true;
+}
+
 /* 読み込んだデータに欠けている項目を補う（古い保存形式・書き出しファイル対策） */
 function normalize(o){
   const d = (o && typeof o === 'object') ? o : {};
@@ -925,6 +1004,10 @@ function normalize(o){
     showRepeats: !!d.showRepeats,
     isSample: !!d.isSample,     // 見本のまま使われないよう案内を出すため
     helpSeen: !!d.helpSeen,     // 使い方を一度でも開いたか（初回だけ自動で出す）
+    // 最後に控えを取った日と、「あとで」を押した日（YYYY-MM-DD）。
+    // 控えが無いまま消えるのが一番痛いので、放置されていないかを見張るために持つ
+    lastBackup:   String(d.lastBackup   || ''),
+    backupSnooze: String(d.backupSnooze || ''),
     // 前回どの推し・どの種類で追加したかを覚えておく。毎回選び直すのが煩わしいため
     lastOwner: String(d.lastOwner || ''),
     lastType: String(d.lastType || ''),
@@ -1033,6 +1116,7 @@ function render(){
 /* ---------- ホーム ---------- */
 function renderHome(){
   document.getElementById('sample-note').hidden = !state.isSample;
+  renderBackupNote();
 
   // まだ何も入っていないうちは、集計を並べても「0」が続くだけで手が止まる。
   // やることを1つに絞った案内だけを出す。
@@ -1559,7 +1643,7 @@ function itemRow(e, date){
     skip.textContent = 'この回は休み';
     skip.onclick = ev => {
       ev.stopPropagation();
-      if(!confirm(`${date} の「${e.title}」だけを休みにします。ほかの回はそのままです。`)) return;
+      markUndo(`${date} の「${e.title}」を休みにしました。ほかの回はそのままです。`, '休みにする');
       e.skips = [...(e.skips || []), date];
       save(); render();
     };
@@ -1728,11 +1812,24 @@ document.getElementById('ev-save').onclick = () => {
 };
 document.getElementById('ev-del').onclick = () => {
   const e = state.events.find(x => x.id === editingId);
-  const msg = (e && e.repeat) ? 'この繰り返し予定を、すべての回まとめて削除しますか？' : 'この予定を削除しますか？';
-  if(!confirm(msg)) return;
+  // 確認は出さない。消したうえで中央のパネルに「取り消す」を出すほうが、
+  // 「本当に消しますか？」に「はい」と答えさせるより取り返しがつく
+  markUndo(e
+    ? (e.repeat ? `「${e.title}」を、すべての回まとめて削除しました` : `「${e.title}」を削除しました`)
+    : '予定を削除しました');
   state.events = state.events.filter(x => x.id !== editingId);
   save(); hide('m-event'); render();
 };
+
+/* 取り消しの実行。推しの管理画面を開いたまま消したときは、そちらも描き直す */
+document.getElementById('undo-do').onclick = () => {
+  if(!undo()) return;
+  const oshiSheet = document.getElementById('m-oshi');
+  if(oshiSheet && !oshiSheet.hidden) drawOshi();
+  render();
+};
+/* 「削除」＝このまま消しておく。控えを捨てて閉じるだけ */
+document.getElementById('undo-keep').onclick = hideUndo;
 document.getElementById('ev-cancel').onclick = () => hide('m-event');
 document.getElementById('addhere').onclick  = () => openEvent(null);
 document.getElementById('addhere2').onclick = () => { selected = TODAY; openEvent(null); };
@@ -1774,9 +1871,7 @@ function drawOshi(){
     del.setAttribute('aria-label', `${o.name} を削除`);
     del.onclick = () => {
       const n = state.events.filter(e => e.ownerId === o.id).length;
-      const msg = n ? `「${o.name}」を削除すると、その予定${n}件も一緒に消えます。よろしいですか？`
-                    : `「${o.name}」を削除しますか？`;
-      if(!confirm(msg)) return;
+      markUndo(n ? `「${o.name}」と、その予定${n}件を削除しました` : `「${o.name}」を削除しました`);
       state.oshis  = state.oshis.filter(x => x.id !== o.id);
       state.events = state.events.filter(e => e.ownerId !== o.id);
       state.hidden = state.hidden.filter(x => x !== o.id);
@@ -2121,16 +2216,89 @@ document.getElementById('btn-set').onclick = () => {
   document.getElementById('set-ver').textContent = 'v' + APP_VERSION;
   document.getElementById('set-count').textContent =
     `推し${state.oshis.length}人・予定${state.events.length}件`;
+  document.getElementById('set-backup').textContent = backupLabel();
   show('m-set');
 };
 document.getElementById('set-close').onclick = () => hide('m-set');
 
-document.getElementById('set-export').onclick = () => {
-  const data = {app:'oshi-cal', version:APP_VERSION, exportedAt:new Date().toISOString(), ...state};
-  download(`推しごとカレンダー-控え-${TODAY}.json`, JSON.stringify(data, null, 2), 'application/json');
-  alert(`推し${state.oshis.length}人・予定${state.events.length}件の控えを作りました。\n\n`
-      + 'このファイルを、メールで自分に送るかクラウドに置いておいてください。\n'
-      + '新しいスマホでも「控えから元に戻す」で読み込めます。');
+/* ---- 控え（バックアップ） ----
+   予定はこのスマホの中にしかない。控えを「作る」だけでは端末と一緒に消えるので、
+   作ると同時に外へ運べるところまでを1動作にする。
+   iPhoneは共有シートを出せば iCloud Drive・メール・LINE を1タップで選べる。
+   共有シートが使えない環境（古いブラウザなど）では、これまでどおりファイルを作る。 */
+const BACKUP_DAYS = 30;      // これだけ空いたら促す
+const SNOOZE_DAYS = 7;       // 「あとで」を押されたら、しばらく黙る
+
+function backupPayload(){
+  return JSON.stringify(
+    {app:'oshi-cal', version:APP_VERSION, exportedAt:new Date().toISOString(), ...state}, null, 2);
+}
+
+async function doBackup(){
+  const json = backupPayload();
+  const name = `推しごとカレンダー-控え-${TODAY}.json`;
+  let viaShare = false;
+
+  try{
+    const file = new File([json], name, {type:'application/json'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({files:[file], title:'推しごとカレンダーの控え'});
+      viaShare = true;
+    }
+  }catch(e){
+    // 送り先を選ばずに閉じた場合もここに来る。控えは運ばれていないので、取れたことにしない
+    if(e && e.name === 'AbortError') return false;
+    // 共有そのものが失敗したときは、下のファイル作成に落ちる
+  }
+  if(!viaShare) download(name, json, 'application/json');
+
+  state.lastBackup = TODAY;
+  state.backupSnooze = '';
+  save();
+  renderBackupNote();
+
+  alert(`推し${state.oshis.length}人・予定${state.events.length}件の控えです。\n\n`
+      + (viaShare
+          ? '送り先に保存されました。新しいスマホでも「控えから元に戻す」で読み込めます。'
+          : 'このファイルを、メールで自分に送るかクラウドに置いておいてください。\n'
+          + '新しいスマホでも「控えから元に戻す」で読み込めます。'));
+  return true;
+}
+document.getElementById('set-export').onclick = doBackup;
+
+/* 設定画面に出す、控えの状況。日付だけだと何日前か分からないので日数も添える */
+function backupLabel(){
+  if(!state.lastBackup) return '⚠️ まだ一度も控えを取っていません。';
+  const days = daysBetween(state.lastBackup, TODAY);
+  const when = days === 0 ? '今日' : days === 1 ? 'きのう' : `${days}日前`;
+  return `最後に控えを取ったのは ${state.lastBackup}（${when}）です。`;
+}
+
+/* 控えを促すべきか。促す必要が無ければ空文字を返す */
+function backupNeed(){
+  // 見本のままの人と、まだ何も入れていない人には出さない（守るものが無い）
+  if(state.isSample || !state.events.length) return '';
+  if(state.backupSnooze && daysBetween(state.backupSnooze, TODAY) < SNOOZE_DAYS) return '';
+
+  if(!state.lastBackup){
+    return `予定が${state.events.length}件たまっています。`
+         + 'まだ一度も控えを取っていないので、いまスマホが壊れると全部消えます。';
+  }
+  const days = daysBetween(state.lastBackup, TODAY);
+  if(days >= BACKUP_DAYS){
+    return `前に控えを取ってから${days}日たちました。そのあとの予定は、まだどこにも残っていません。`;
+  }
+  return '';
+}
+
+function renderBackupNote(){
+  const msg = backupNeed();
+  document.getElementById('backup-note').hidden = !msg;
+  if(msg) document.getElementById('backup-msg').textContent = msg;
+}
+document.getElementById('backup-now').onclick   = doBackup;
+document.getElementById('backup-later').onclick = () => {
+  state.backupSnooze = TODAY; save(); renderBackupNote();
 };
 
 /* ---- .ics（カレンダーアプリ向け）の書き出し ----
@@ -2238,9 +2406,10 @@ document.getElementById('set-file').onchange = ev => {
     if(!confirm(`控えの中身：推し${next.oshis.length}人・予定${next.events.length}件\n\n`
               + `これを読み込むと、いま入っている内容（推し${state.oshis.length}人・予定${state.events.length}件）は`
               + `すべて置き換わります。よろしいですか？`)) return;
+    markUndo(`控えから戻しました。前の内容（推し${state.oshis.length}人・予定${state.events.length}件）は`
+           + `置き換わっています。`, 'このまま');
     state = next;
     save(); hide('m-set'); render();
-    alert('控えから戻しました。');
   };
   reader.onerror = () => alert('ファイルを読めませんでした。');
   reader.readAsText(file);
@@ -2248,7 +2417,7 @@ document.getElementById('set-file').onchange = ev => {
 };
 
 document.getElementById('set-reset').onclick = () => {
-  if(!confirm('すべての推しと予定を削除します。元に戻せません。よろしいですか？')) return;
+  markUndo(`推し${state.oshis.length}人・予定${state.events.length}件を、すべて削除しました`);
   state = {oshis:[], events:[], hidden:[], showRepeats:false, isSample:false, helpSeen:state.helpSeen, mode};
   save(); hide('m-set'); render();
 };
@@ -2328,7 +2497,7 @@ document.getElementById('sn-help').onclick   = openHelp;
 document.getElementById('help-close').onclick = () => hide('m-help');
 
 document.getElementById('sn-clear').onclick = () => {
-  if(!confirm('お試し用の見本をすべて消して、まっさらな状態から始めますか？')) return;
+  markUndo('見本を消して、まっさらな状態にしました');
   const seen = state.helpSeen;
   state = {oshis:[], events:[], hidden:[], showRepeats:false, isSample:false, helpSeen:seen, mode};
   save(); render();
