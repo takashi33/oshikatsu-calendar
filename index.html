@@ -196,7 +196,6 @@ header{
 }
 .chip .swatch{width:9px;height:9px;border-radius:50%;flex:0 0 9px}
 .chip.off{opacity:.4}
-.chip.manage{color:var(--sub)}
 
 /* ---------- カレンダー ---------- */
 .cal{
@@ -245,13 +244,33 @@ header{
   .ev{display:none}          /* 狭い画面ではタイトルを出さず、誰かだけを見せる */
 }
 
+/* ---------- カレンダーの画面は、ひと月ぶんを一画面に収める ----------
+   月の表は「ひと月まるごとを一目で見る」ためのもの。下がはみ出していて
+   指で送らないと月末が見えない状態では、その役目を果たせない。
+   カレンダーを開いている間だけ、上の月表示のすぐ下から、下のバーの手前までを
+   表の高さにする。行の高さは残りを7等分ではなく均等割りにするので、
+   5行の月は1マスが大きく、6行の月は少し詰まる。どちらもはみ出さない。
+   --barh（下のバーの高さ）は機種によって変わるため、JS が実測して入れる。 */
+body.cal-full{ height:100vh; height:100dvh; overflow:hidden; padding-bottom:0 }
+body.cal-full .wrap{
+  height:100%; display:flex; flex-direction:column;
+  padding-bottom:calc(var(--barh, 66px) + 10px);
+}
+body.cal-full #view-cal{ flex:1; min-height:0; display:flex; flex-direction:column }
+body.cal-full .cal{ flex:1; min-height:0; display:flex; flex-direction:column }
+body.cal-full .grid{ flex:1; min-height:0; grid-auto-rows:1fr }
+body.cal-full .cell{ min-height:0 }
+
 /* ---------- 選択日パネル / これから ---------- */
 .card{
   margin-top:12px;background:var(--panel);border:1px solid var(--line);
   border-radius:var(--radius);padding:13px;box-shadow:var(--shadow);
 }
 .card h3{margin:0 0 10px;font-size:15px;display:flex;align-items:center;gap:8px}
-.card h3 .add{margin-left:auto;font-size:12px;background:var(--accent);color:#fff;border:none;border-radius:8px;padding:6px 11px}
+.card h3 .add,
+#m-day h3 .add{margin-left:auto;font-size:12px;background:var(--accent);color:#fff;border:none;border-radius:8px;padding:6px 11px}
+/* 選んだ日の中身は、カレンダーの下ではなく下から出るパネルに出す */
+#m-day h3{display:flex;align-items:center;gap:8px}
 .item{display:flex;gap:10px;padding:9px 0;border-top:1px solid var(--line)}
 .item .stripe{width:4px;border-radius:2px;flex:0 0 4px}
 .item .body{flex:1;min-width:0}
@@ -540,15 +559,12 @@ textarea{min-height:104px;resize:vertical}
     </div>
   </div>
 
-  <!-- カレンダー表示 -->
+  <!-- カレンダー表示。ひと月ぶんを一画面に収めるため、ここには表だけを置く。
+       選んだ日の中身は下から出るパネル（#m-day）に出す。 -->
   <div id="view-cal" hidden>
     <div class="cal">
       <div class="dow"><div>日</div><div>月</div><div>火</div><div>水</div><div>木</div><div>金</div><div>土</div></div>
       <div class="grid" id="grid"></div>
-    </div>
-    <div class="card">
-      <h3><span id="daylabel"></span><button class="add" id="addhere">＋ 予定</button></h3>
-      <div id="daylist"></div>
     </div>
   </div>
 
@@ -566,6 +582,17 @@ textarea{min-height:104px;resize:vertical}
 <div class="bar">
   <button class="primary" id="btn-paste">📋 文章から予定を作る</button>
   <button id="btn-oshi">👤 推しを管理</button>
+</div>
+
+<!-- 選んだ日の中身 -->
+<div class="mask" id="m-day" hidden>
+  <div class="sheet">
+    <h3><span id="daylabel"></span><button class="add" id="addhere">＋ 予定</button></h3>
+    <div id="daylist"></div>
+    <div class="actions" style="margin-top:14px">
+      <button class="primary" id="day-close">閉じる</button>
+    </div>
+  </div>
 </div>
 
 <!-- 予定の追加・編集 -->
@@ -677,7 +704,7 @@ textarea{min-height:104px;resize:vertical}
       <dt>ホーム</dt>
       <dd>次の推しの予定まであと何日か。逃せない締切。今月いくら使ったか。まずここを見ます。</dd>
       <dt>カレンダー</dt>
-      <dd>ひと月の表です。<strong>自分の予定はグレー、推しの予定は推しの色</strong>で並びます。日にちを押すと、その日の中身が下に出ます。<strong>日付のマス目の上を横に払うと、前の月・次の月へ動きます</strong>（上の ‹ › でも動きます）。</dd>
+      <dd>ひと月ぶんが、まるごと1画面に収まります。<strong>自分の予定はグレー、推しの予定は推しの色</strong>で並びます。日にちを押すと、<strong>その日の中身が下から出てきます</strong>（その場で予定も足せます）。<strong>日付のマス目の上を横に払うと、前の月・次の月へ動きます</strong>（上の ‹ › でも動きます）。</dd>
       <dt>これから</dt>
       <dd>先の予定を、日付順にずらっと並べたものです。上の枠に文字を入れると絞り込めます。</dd>
     </dl>
@@ -822,7 +849,7 @@ textarea{min-height:104px;resize:vertical}
    ・外部サイトからの自動取得は行わない（理由は knowledge/external-data-fetch.md）
    ========================================================= */
 
-const APP_VERSION = '4.6.0';
+const APP_VERSION = '4.7.0';
 const STORE_KEY = 'oshi-cal-v1';
 const PALETTE = ['#ff7aa8','#7ec8e3','#ffc25c','#9ad6a3','#c39aeb','#ff9f7a','#6fd0c4','#e88fb8'];
 const TYPES = [
@@ -831,7 +858,8 @@ const TYPES = [
   {id:'release', label:'発売',   icon:'💿'},
   {id:'deadline',label:'締切',   icon:'🎫'},   // 申込・当落・入金など、逃すと取り返しがつかないもの
   {id:'bday',    label:'誕生日', icon:'🎂'},
-  {id:'other',   label:'その他', icon:'📌'}
+  // 「推しごと」に対する、自分の用事のほう。バイト・通院・学校など
+  {id:'other',   label:'自分ごと', icon:'📌'}
 ];
 const DEADLINE_WATCH = 30;   // 締切を「迫っている」として拾う日数
 const URGENT_DAYS = 3;       // これ以内は赤くする
@@ -1050,7 +1078,9 @@ function seed(){
 const owners = () => [{id:'me', name:'自分', color:getVar('--me')}, ...state.oshis];
 const ownerOf = id => owners().find(o => o.id === id) || {id, name:'（不明）', color:'#999'};
 const isShown = id => !state.hidden.includes(id);
-const typeOf = id => TYPES.find(t => t.id === id) || TYPES[4];
+/* 知らない種類が来たとき（古い控えの読み込みなど）の受け皿は、いちばん後ろの
+   「自分ごと」にする。番号で指すと、種類を足したときに黙ってずれる。 */
+const typeOf = id => TYPES.find(t => t.id === id) || TYPES[TYPES.length - 1];
 function getVar(name){
   try{
     return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || '#7c8ba1';
@@ -1098,6 +1128,19 @@ function eventsOn(date){
 /* =========================================================
    描画
    ========================================================= */
+
+/* 下のバーの高さは機種で変わる（ホームバーの有無・文字の大きさ設定）。
+   決め打ちにすると、カレンダーの最終行がバーの下に潜り込む機種が出る。
+   実際に測って CSS に渡す。画面の無い環境（自動テスト）では何もしない。 */
+function syncBarHeight(){
+  try{
+    const bar = document.querySelector('.bar');
+    if(!bar || bar.hidden) return;          // パネルを開いている間は隠れていて測れない
+    const h = bar.offsetHeight;
+    if(h) document.documentElement.style.setProperty('--barh', h + 'px');
+  }catch(e){ /* 測れない環境では既定値のままにする */ }
+}
+
 function render(){
   document.getElementById('storewarn').hidden  = storageOK;
   document.getElementById('monthbar').hidden   = (mode !== 'cal');
@@ -1106,6 +1149,9 @@ function render(){
   document.getElementById('view-list').hidden  = (mode !== 'list');
   ['home','cal','list'].forEach(m =>
     document.getElementById('tab-' + m).classList.toggle('on', mode === m));
+  // カレンダーのときだけ、画面の高さいっぱいに表を伸ばす（スクロールなし）
+  document.body.classList.toggle('cal-full', mode === 'cal');
+  syncBarHeight();
 
   renderFilters();
   if(mode === 'home')     renderHome();
@@ -1405,10 +1451,15 @@ function renderReview(){
 }
 
 function renderFilters(){
+  // カレンダーの画面には出さない。あそこは「ひと月まるごとを見る」ための場所で、
+  // 表より上に別のものが並ぶと、そのぶん表が縮む。推しを足すのは「推しを管理」から。
   // 推しが1人もいないうちは、隠す・出すの説明を出しても意味がない
+  const on = (mode !== 'cal') && state.oshis.length > 0;
   const hidden = state.hidden.filter(id => owners().some(o => o.id === id)).length;
   const label = document.getElementById('filters-label');
-  label.hidden = !state.oshis.length;
+  document.getElementById('filters').hidden = !on;
+  label.hidden = !on;
+  if(!on) return;
   label.textContent = hidden
     ? `いま ${hidden}人ぶんの予定を隠しています（押すと戻ります）`
     : '押すと、その人の予定を隠したり出したりできます';
@@ -1428,10 +1479,6 @@ function renderFilters(){
     };
     box.appendChild(b);
   });
-  const m = document.createElement('button');
-  m.className = 'chip manage'; m.textContent = '＋ 推しを追加';
-  m.onclick = openOshi;
-  box.appendChild(m);
 }
 
 function renderGrid(){
@@ -1508,12 +1555,7 @@ function renderGrid(){
       selected = key;
       if(d.getMonth() !== mo) view = new Date(d.getFullYear(), d.getMonth(), 1);
       render();
-      // その日の中身が画面の外に隠れているときだけ送ってやる。
-      // 少しでも見えていれば動かさない。毎回動かすと画面が揺れて感じられるため。
-      const card = document.querySelector('#view-cal .card');
-      if(card.getBoundingClientRect().top > innerHeight - 60){
-        card.scrollIntoView({behavior:'smooth', block:'nearest'});
-      }
+      show('m-day');   // 表を隠さないよう、その日の中身は下から出す
     };
     grid.appendChild(cell);
   }
@@ -1832,6 +1874,7 @@ document.getElementById('undo-do').onclick = () => {
 document.getElementById('undo-keep').onclick = hideUndo;
 document.getElementById('ev-cancel').onclick = () => hide('m-event');
 document.getElementById('addhere').onclick  = () => openEvent(null);
+document.getElementById('day-close').onclick = () => hide('m-day');
 document.getElementById('addhere2').onclick = () => { selected = TODAY; openEvent(null); };
 document.getElementById('addhere3').onclick = () => { selected = TODAY; openEvent(null); };
 
@@ -2560,6 +2603,18 @@ document.getElementById('gotoday').onclick = () => {
 };
 
 render();
+/* 描いた直後は、下のバーの文字がまだ1行に収まっておらず高さが大きく出ることがある。
+   落ち着いてからもう一度測る。画面を回したときも測り直す。 */
+setTimeout(syncBarHeight, 0);
+window.addEventListener('load', syncBarHeight);
+window.addEventListener('resize', syncBarHeight);
+window.addEventListener('orientationchange', syncBarHeight);
+/* 画面が狭いと下のバーのボタンが2行になり、高さが変わる。
+   ⚠️ 実際に幅320pxで最終週がバーの下に潜り込んだ。高さが変わったその時に測り直す。 */
+if(typeof ResizeObserver === 'function'){
+  const barEl = document.querySelector('.bar');
+  if(barEl) new ResizeObserver(syncBarHeight).observe(barEl);
+}
 
 /* ---------- iPhone用の受け取り口（iOSショートカット） ----------
    iOSは共有シートにWebアプリを出せない。ショートカットを1つ入れてもらうのが唯一の道。
