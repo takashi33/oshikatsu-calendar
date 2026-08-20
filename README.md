@@ -8,7 +8,7 @@
 
 ## 使う
 
-### 👉 https://takashi33.github.io/oshikatsu-calendar/
+### 👉 https://takashi33.github.io/oshigoto-calendar/
 
 スマホのブラウザで開いて、**ホーム画面に追加**すると、アプリのように使えます。
 

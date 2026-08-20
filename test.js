@@ -320,7 +320,7 @@ ok(api.normalize({ mode: 'home' }).mode === 'home', 'ホームを選んでいれ
    「#」で本文が切れないことがこの機能の生命線。 */
 console.log('\n--- 共有で受け取る ---');
 const S = api.sharedTextFromUrl;
-const BASE = 'https://takashi33.github.io/oshikatsu-calendar/';
+const BASE = 'https://takashi33.github.io/oshigoto-calendar/';
 
 ok(S(BASE) === '', '共有でないときは何も返さない');
 ok(S(BASE + '?text=') === '', '空の共有は無視する');
@@ -462,7 +462,7 @@ ok(oeGot.length === 1, '予定は1件だけできる（投稿日で増えない�
 ok(oeGot[0] && oeGot[0].date === '2026-12-25', '発売日を拾う', oeGot[0] && oeGot[0].date);
 
 // エンコードされずに素で届いても読めるか（ショートカットが素通しする場合）
-const rawHref = 'https://takashi33.github.io/oshikatsu-calendar/?text=' + oe;
+const rawHref = 'https://takashi33.github.io/oshigoto-calendar/?text=' + oe;
 ok(api.postFromOEmbed(api.sharedTextFromUrl(rawHref)).includes('Episode6'),
    '素のJSONがURLに載っても読める');
 
@@ -488,7 +488,7 @@ ok(api.decodeEntities('&amp;quot;') === '&quot;', '二重にほどきすぎな�
 
 // 取得に失敗して中身が空でも、リンクだけは届いて拾える（ショートカットが両方渡すため）
 const failCase = api.sharedTextFromUrl(
-  'https://takashi33.github.io/oshikatsu-calendar/?text=https://x.com/foo/status/1');
+  'https://takashi33.github.io/oshigoto-calendar/?text=https://x.com/foo/status/1');
 ok(api.postFromHtml(failCase) === '', '取得に失敗した形でも落ちない');
 ok(failCase === 'https://x.com/foo/status/1', '失敗時はリンクだけが残る');
 

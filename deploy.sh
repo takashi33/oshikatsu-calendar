@@ -13,7 +13,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 PUBLISHED=(index.html sw.js manifest.webmanifest icon-192.png icon-512.png icon-512-maskable.png)
-SITE="https://takashi33.github.io/oshikatsu-calendar"
+SITE="https://takashi33.github.io/oshigoto-calendar"
 
 say() { printf '\n\033[1m%s\033[0m\n' "$1"; }
 die() { printf '\n\033[31m%s\033[0m\n' "$1" >&2; exit 1; }
@@ -89,7 +89,7 @@ fi
 if [ -z "$(git status --porcelain)" ]; then
   say "コミットする変更がありません。"
 else
-  MSG="${1:-Update oshikatsu calendar}"
+  MSG="${1:-Update oshigoto calendar}"
   say "4/5 コミット: $MSG"
   git add -A
   git commit --quiet -m "$MSG"
